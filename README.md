@@ -13,10 +13,20 @@ No hooks, no background collector, no separate server process. A Vite app with a
 
 ## Install
 
+### Run without installing (recommended)
+
+```bash
+npx agent-profiler
+```
+
+Requires Node 18+. Starts a local server at `http://localhost:5173/` and opens it in your browser. Use `--port N` to change the port, `--no-open` to skip the browser, `--help` for the full flag list.
+
+### From source (for development)
+
 ```bash
 git clone <repo-url> agent-profiler
 cd agent-profiler
-npm run install:ui     # installs ui/ deps
+npm install            # installs root + ui workspace in one shot
 ```
 
 ## Usage
@@ -29,14 +39,22 @@ npm run dev
 
 Open `http://localhost:5173/`.
 
-### Local "prod" (static build)
+### Production server (built bundle)
 
 ```bash
-npm run build
-npm run preview
+npm run build          # produces ui/dist/
+npm start              # serves ui/dist/ + /api/traces via the standalone CLI
 ```
 
-Open `http://localhost:5173/`. Same URL, but serving the compiled bundle from `ui/dist/` and the same transcript-reading middleware.
+Same URL. `npm start` is the same binary that ships with the published package (`bin/agent-profiler.js`) — no Vite at runtime.
+
+### Vite preview (alternative)
+
+```bash
+npm run build && npm run preview
+```
+
+Identical UX to `npm start`, but boots Vite's preview server. Useful for debugging build artifacts; not used in production.
 
 ## Architecture
 
@@ -93,6 +111,7 @@ Trace { kind: 'unattached', traceId: <sid>:unattached }   ← only when orphans 
 | Var | Default | Purpose |
 | --- | --- | --- |
 | `AGENT_TRACE_LIMIT` | `200` | Cap on how many most-recent sessions the `/api/traces` middleware returns |
+| `AGENT_TRACE_PORT` | `5173` | Port the standalone CLI binds to (overridden by `--port`) |
 
 ## Verifying it works
 

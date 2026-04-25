@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { SpanNode } from '@/types';
-import { TokenWaterfall } from './TokenWaterfall';
-import { TOKEN_CATS, TOKEN_CAT_ORDER } from './waterfall-tokens';
 import {
   LEGEND_ITEMS,
   SpanRow,
@@ -18,8 +15,6 @@ interface Props {
   selectedSpanId: string | null;
   onSelectSpan: (span: SpanNode) => void;
 }
-
-type WaterfallMode = 'duration' | 'tokens';
 
 interface RowViewProps {
   rows: FlatRow[];
@@ -90,7 +85,6 @@ export function TraceWaterfall({
   selectedSpanId,
   onSelectSpan,
 }: Props) {
-  const [mode, setMode] = useState<WaterfallMode>('duration');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const sortedRoots = useMemo(
@@ -120,59 +114,24 @@ export function TraceWaterfall({
     );
   }
 
-  const legendItems =
-    mode === 'tokens'
-      ? TOKEN_CAT_ORDER.map((k) => ({ label: TOKEN_CATS[k].label, cls: TOKEN_CATS[k].cls }))
-      : LEGEND_ITEMS;
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="max-h-[480px] overflow-auto px-4 py-3 font-mono text-xs">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-sans">
-          {legendItems.map((item) => (
+          {LEGEND_ITEMS.map((item) => (
             <div key={item.label} className="flex items-center gap-1.5">
               <span className={cn('h-2 w-2 shrink-0 rounded-sm', item.cls)} />
               <span className="text-[10px] text-muted-foreground">{item.label}</span>
             </div>
           ))}
-          <Tabs
-            value={mode}
-            onValueChange={(v) => setMode(v as WaterfallMode)}
-            className="ml-auto"
-          >
-            <TabsList className="h-6 border border-border bg-zinc-200 p-0.5 dark:bg-zinc-800">
-              <TabsTrigger
-                value="duration"
-                className="h-5 px-2 py-0 text-[10px]"
-              >
-                Duration
-              </TabsTrigger>
-              <TabsTrigger
-                value="tokens"
-                className="h-5 px-2 py-0 text-[10px]"
-              >
-                Tokens
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
-        {mode === 'duration' ? (
-          <DurationRows
-            rows={rows}
-            collapsed={collapsed}
-            selectedSpanId={selectedSpanId}
-            onToggle={toggle}
-            onSelectSpan={onSelectSpan}
-          />
-        ) : (
-          <TokenWaterfall
-            rows={rows}
-            collapsed={collapsed}
-            selectedSpanId={selectedSpanId}
-            onToggle={toggle}
-            onSelectSpan={onSelectSpan}
-          />
-        )}
+        <DurationRows
+          rows={rows}
+          collapsed={collapsed}
+          selectedSpanId={selectedSpanId}
+          onToggle={toggle}
+          onSelectSpan={onSelectSpan}
+        />
       </div>
     </TooltipProvider>
   );

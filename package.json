@@ -7,13 +7,26 @@
   "engines": {
     "node": ">=18"
   },
+  "workspaces": [
+    "ui"
+  ],
+  "bin": {
+    "agent-profiler": "./bin/agent-profiler.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "ui/dist/",
+    "README.md"
+  ],
   "scripts": {
-    "dev": "npm --prefix ui run dev",
-    "build": "npm --prefix ui run build",
-    "preview": "npm --prefix ui run preview",
-    "install:ui": "npm --prefix ui install",
+    "dev": "npm run dev -w ui",
+    "build": "npm run build -w ui",
+    "preview": "npm run preview -w ui",
+    "start": "node bin/agent-profiler.js",
     "test": "node --test \"test/**/*.test.js\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -61,7 +61,7 @@ export function AppHeader({
         </TooltipProvider>
         <Activity className="h-5 w-5 shrink-0 text-emerald-400" />
         <div className="flex items-baseline gap-2 min-w-0">
-          <h1 className="text-sm font-semibold shrink-0">agent-trace explorer</h1>
+          <h1 className="text-sm font-semibold shrink-0">agent-profiler</h1>
           <span className="truncate text-xs text-muted-foreground">
             {conversationCount} conversation
             {conversationCount === 1 ? '' : 's'} · {traceCount} trace

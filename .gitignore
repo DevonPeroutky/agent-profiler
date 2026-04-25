@@ -5,3 +5,12 @@ dist/
 .env
 .env.local
 *.log
+
+# pnpm leftovers — this repo uses npm workspaces, not pnpm
+pnpm-lock.yaml
+
+# Stray per-workspace lockfiles — npm workspaces consolidates into the root lockfile
+ui/package-lock.json
+
+# Publish artifacts
+*.tgz
