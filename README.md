@@ -1,8 +1,8 @@
-# agent-profiler
+# agent-trace
 
 A local trace viewer for Claude Code conversations. Reads your session transcripts from `~/.claude/projects/*/` and renders them as a waterfall UI at <http://localhost:5173/> — session → turn → tool call → subagent, with prompts, tool I/O, and per-turn token usage inline.
 
-No hooks, no background collector, no separate server process. A Vite app with a small middleware plugin that reads transcripts on demand.
+No hooks, no background collector, no separate server process. A Vite app with a 20-line middleware plugin that reads transcripts on demand.
 
 ## What it does
 
@@ -13,48 +13,37 @@ No hooks, no background collector, no separate server process. A Vite app with a
 
 ## Install
 
-### Run without installing (recommended)
-
 ```bash
-npx agent-profiler
+/plugin install agent-trace@devon-plugins
 ```
 
-Requires Node 18+. Starts a local server at `http://localhost:5173/` and opens it in your browser. Use `--port N` to change the port, `--no-open` to skip the browser, `--help` for the full flag list.
-
-### From source (for development)
-
-```bash
-git clone <repo-url> agent-profiler
-cd agent-profiler
-npm install            # installs root + ui workspace in one shot
-```
+The first run needs `npm install` inside `ui/` (see below).
 
 ## Usage
 
 ### Dev (with HMR)
 
 ```bash
+cd plugins/agent-trace/ui
+npm install  # first time only
 npm run dev
 ```
 
 Open `http://localhost:5173/`.
 
-### Production server (built bundle)
+### Local "prod" (static build)
 
 ```bash
-npm run build          # produces ui/dist/
-npm start              # serves ui/dist/ + /api/traces via the standalone CLI
+cd plugins/agent-trace/ui
+npm run build
+npm run preview
 ```
 
-Same URL. `npm start` is the same binary that ships with the published package (`bin/agent-profiler.js`) — no Vite at runtime.
+Open `http://localhost:5173/`. Same URL, but serving the compiled bundle from `ui/dist/` and the same transcript-reading middleware.
 
-### Vite preview (alternative)
+### Slash command
 
-```bash
-npm run build && npm run preview
-```
-
-Identical UX to `npm start`, but boots Vite's preview server. Useful for debugging build artifacts; not used in production.
+`/agent-trace:explore` — opens `http://localhost:5173/` if the dev or preview server is up; otherwise tells you how to start it.
 
 ## Architecture
 
@@ -111,11 +100,10 @@ Trace { kind: 'unattached', traceId: <sid>:unattached }   ← only when orphans 
 | Var | Default | Purpose |
 | --- | --- | --- |
 | `AGENT_TRACE_LIMIT` | `200` | Cap on how many most-recent sessions the `/api/traces` middleware returns |
-| `AGENT_TRACE_PORT` | `5173` | Port the standalone CLI binds to (overridden by `--port`) |
 
 ## Verifying it works
 
-1. `npm run dev` — Vite prints `http://localhost:5173/`.
+1. `cd ui && npm run dev` — Vite prints `http://localhost:5173/`.
 2. `curl -s http://localhost:5173/api/traces | jq '.traces | length'` — returns the count.
 3. Open the UI; the most recent sessions appear in the sidebar with the first user prompt as each conversation's label.
 4. Click a session that used subagents (e.g. anything invoked via `Task`/`Agent` or a `/<skill>` slash command) — confirm the waterfall nests tools under the subagent span.
@@ -148,3 +136,29 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 - OTLP export or any external collector integration. The transformer is pure, so a one-shot `transcript → OTLP JSONL` script is ~30 lines if you ever need it, but nothing like that is wired in.
 - Live push (hooks, websockets). The 5s poll is intentional.
 - Cross-session comparison views, alerting, remote collectors.
+
+## TODO
+
+### General
+
+- [ ] Switch between token view and trace view
+- [ ] Attachment handling?
+- [ ] Update session preview sidebar to pick better label
+- [ ] Project Icons
+- [ ] Production-ize
+- [ ] Harness agnostic?
+
+### Trace view
+
+- [ ] Collapse/expand prompts/messages in trace view
+- [ ] Style
+
+### Token view
+
+- [ ] Better icons for token view
+- [ ] Graph for token accumulation in token view
+- [ ] Turn separator
+
+### Marketing
+
+- [ ] Blog post about how long Anthropic took to debug Claude Code deficiencies.

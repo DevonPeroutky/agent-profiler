@@ -38,6 +38,12 @@
     --tool-subagent:   #f97316;
     --tool-inference:  #18181b;
     --tool-user:       #71717a;
+
+    --chart-1: 221 83% 53%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 330 81% 60%;
+    --chart-5: 262 83% 58%;
   }
 
   .dark {
@@ -74,6 +80,12 @@
     --tool-subagent:   #fb923c;
     --tool-inference:  #fafafa;
     --tool-user:       #71717a;
+
+    --chart-1: 213 94% 68%;
+    --chart-2: 160 64% 52%;
+    --chart-3: 38 92% 60%;
+    --chart-4: 330 81% 70%;
+    --chart-5: 262 83% 68%;
   }
 }
 

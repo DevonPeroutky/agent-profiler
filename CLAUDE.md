@@ -171,5 +171,7 @@ ui/
 
 - Pure view layer. The transformer is the only place data is shaped.
 - ShadCN components as the primary building blocks; Tailwind for layout.
+- **Reuse first.** Before building anything new, check if an existing ShadCN component (already installed in `ui/src/components/ui/`) maps to the use case. Prefer reusing it over hand-rolling — even if the fit is 80%, extend the existing component rather than introducing a parallel one.
+- **Charts and visualizations default to ShadCN Charts** (Recharts under the hood, themed via `<ChartContainer>` / `<ChartTooltip>` / `<ChartLegend>`). Use the standard chart primitives (Area, Bar, Line, Pie, Radar, Radial) for any graph or data visualization. Only fall back to hand-rolled SVG/CSS when ShadCN Charts genuinely cannot express the visualization (e.g. bespoke waterfall layouts, span-tree renderings) — and document why in the component.
 - Grouping transforms live colocated with the component that renders them (`groupConversations`, `collectTurns`, `flatten`). All pure.
 - If the UI needs a new piece of information, add it to the transformer — don't recompute from span names.
