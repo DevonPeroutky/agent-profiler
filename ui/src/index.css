@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+    --primary: 240 10% 4%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 4%;
+    --muted: 0 0% 98%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 10% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 91%;
+    --input: 240 4% 91%;
+    --ring: 217 91% 60%;
+    --highlight: 221 83% 53%;
+    --radius: 0.5rem;
+
+    --tok-fresh:       #2563eb;
+    --tok-cache-read:  #10b981;
+    --tok-cache-write: #f59e0b;
+    --tok-output:      #ec4899;
+
+    --tool-read:       #3b82f6;
+    --tool-write:      #8b5cf6;
+    --tool-bash:       #ef4444;
+    --tool-search:     #14b8a6;
+    --tool-subagent:   #f97316;
+    --tool-inference:  #18181b;
+    --tool-user:       #71717a;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 4%;
+    --secondary: 240 6% 10%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 6% 10%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 6% 10%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 213 94% 68%;
+    --highlight: 213 94% 68%;
+
+    --tok-fresh:       #60a5fa;
+    --tok-cache-read:  #34d399;
+    --tok-cache-write: #fbbf24;
+    --tok-output:      #f472b6;
+
+    --tool-read:       #60a5fa;
+    --tool-write:      #a78bfa;
+    --tool-bash:       #f87171;
+    --tool-search:     #2dd4bf;
+    --tool-subagent:   #fb923c;
+    --tool-inference:  #fafafa;
+    --tool-user:       #71717a;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}

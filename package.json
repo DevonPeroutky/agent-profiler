@@ -1,0 +1,22 @@
+{
+  "name": "agent-profiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local trace viewer for Claude Code conversations — reads session transcripts and renders a waterfall UI.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "npm --prefix ui run dev",
+    "build": "npm --prefix ui run build",
+    "preview": "npm --prefix ui run preview",
+    "install:ui": "npm --prefix ui install",
+    "test": "node --test \"test/**/*.test.js\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0"
+  }
+}
