@@ -1,14 +1,30 @@
 import { extractSlashCommand, stripLocalCommandCaveat } from '@/lib/utils';
 import type { ConversationSummary } from '@/types';
 
-export function getFirstPrompt(
+// Matches a prompt whose entire content is a slash-command invocation —
+// either a bare `/clear` / `/loop 5m foo` string (the transformer's normal
+// shape) or the `<command-name>…</command-name>` envelope form
+// (`extractSlashCommand`). Plain prose that happens to mention `/foo` mid-
+// sentence won't match because the slash must be at the very start.
+const SLASH_COMMAND_RE = /^\/[a-zA-Z][\w:-]*(\s.*)?$/s;
+
+function isPureSlashCommand(text: string): boolean {
+  return SLASH_COMMAND_RE.test(text) || extractSlashCommand(text) !== null;
+}
+
+// Sidebar title text. Walks turns in order and returns the first user prompt
+// that is not a pure slash command (`/clear`, `/compact`, …) — those are
+// session controls, not a meaningful conversation label. Returns null if no
+// turn qualifies; callers should fall back to a session-id short.
+export function selectConversationPreview(
   conversation: ConversationSummary,
 ): string | null {
   for (const turn of conversation.turns) {
     if (turn.isMeta) continue;
-    const stripped = stripLocalCommandCaveat(turn.userPrompt);
-    const cleaned = extractSlashCommand(stripped) ?? stripped;
-    if (cleaned) return cleaned;
+    const stripped = stripLocalCommandCaveat(turn.userPrompt).trim();
+    if (!stripped) continue;
+    if (isPureSlashCommand(stripped)) continue;
+    return stripped;
   }
   return null;
 }

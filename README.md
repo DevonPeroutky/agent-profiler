@@ -143,8 +143,8 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 
 - [ ] Switch between token view and trace view
 - [ ] Attachment handling?
-- [ ] Update session preview sidebar to pick better label
-- [ ] Project Icons
+- [x] Update session preview sidebar to pick better label
+- [x] Project Icons
 - [ ] Production-ize
 - [ ] Harness agnostic?
 
@@ -155,9 +155,9 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 
 ### Token view
 
-- [ ] Better icons for token view
-- [ ] Graph for token accumulation in token view
-- [ ] Turn separator
+- [x] Better icons for token view
+- [ ] Graph(s) for token accumulation in token view
+- [ ] Better Turn separator display
 
 ### Marketing
 

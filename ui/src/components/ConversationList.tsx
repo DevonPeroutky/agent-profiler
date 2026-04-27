@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Copy } from 'lucide-react';
+import { ChevronRight, Copy, Folder, FolderOpen } from 'lucide-react';
 import { cn, formatRelativeTime, formatTimestamp } from '@/lib/utils';
-import { getFirstAssistantPreview, getFirstPrompt } from '@/lib/conversation';
+import { getFirstAssistantPreview, selectConversationPreview } from '@/lib/conversation';
 import {
   Collapsible,
   CollapsibleContent,
@@ -90,13 +90,12 @@ export function ConversationList({
 }: Props) {
   const groups = useMemo(() => groupByProject(conversations), [conversations]);
 
-  // Controlled open-state per group, keyed by cwd. Absence of a key means
-  // "default to open"; only user-closed groups are persisted as `false`.
+  // Controlled open-state per group, keyed by cwd. Groups default to closed;
+  // only user-opened groups (or auto-expanded ones via selection) are persisted.
   const [openByKey, setOpenByKey] = useState<Record<string, boolean>>({});
 
-  // Auto-expand the group containing the current selection. If the user
-  // later closes that group manually, subsequent selections inside it will
-  // re-open it — that's the intended behavior for "jump to session".
+  // Auto-expand the group containing the current selection so "jump to
+  // session" reveals the active conversation.
   useEffect(() => {
     if (!selectedSessionId) return;
     const target = groups.find((g) =>
@@ -105,7 +104,7 @@ export function ConversationList({
     if (!target) return;
     const key = groupKey(target);
     setOpenByKey((prev) =>
-      prev[key] === false ? { ...prev, [key]: true } : prev,
+      prev[key] ? prev : { ...prev, [key]: true },
     );
   }, [selectedSessionId, groups]);
 
@@ -117,7 +116,7 @@ export function ConversationList({
     );
   }
 
-  const isOpen = (key: string) => openByKey[key] !== false;
+  const isOpen = (key: string) => openByKey[key] === true;
 
   return (
     <div>
@@ -137,24 +136,26 @@ export function ConversationList({
               className="flex w-full items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium text-foreground transition-colors hover:bg-accent/40"
             >
               <span className="flex min-w-0 items-center gap-1.5">
-                <ChevronRight
-                  className={cn(
-                    'h-4 w-4 shrink-0 transition-transform duration-200 ease-out',
-                    open && 'rotate-90',
-                  )}
-                />
+                {open ? (
+                  <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                )}
                 <span className="truncate">{group.label}</span>
               </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {group.conversations.length}
-              </span>
+              <ChevronRight
+                className={cn(
+                  'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-out',
+                  open && 'rotate-90',
+                )}
+              />
             </CollapsibleTrigger>
             <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
               <ul className="divide-y divide-border">
                 {group.conversations.map((c) => {
                   const active = c.sessionId === selectedSessionId;
                   const sidShort = c.sessionId.slice(0, 8);
-                  const firstPrompt = getFirstPrompt(c);
+                  const firstPrompt = selectConversationPreview(c);
                   const label = firstPrompt ?? sidShort;
                   const preview = getFirstAssistantPreview(c);
                   return (

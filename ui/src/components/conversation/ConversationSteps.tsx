@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { ConversationSummary } from '@/types';
 import {
   buildConversationSteps,
@@ -15,6 +15,7 @@ interface KindMeta {
   label: string;
   color: string;
   glyph: string;
+  fg?: string;
 }
 
 const KIND_META: Record<ConversationStepKind, KindMeta> = {
@@ -36,33 +37,25 @@ const KIND_META: Record<ConversationStepKind, KindMeta> = {
   },
 };
 
-const TOOL_KIND_COLOR: Record<string, string> = {
-  Read: 'var(--tool-read)',
-  Write: 'var(--tool-write)',
-  Bash: 'var(--tool-bash)',
-  Search: 'var(--tool-search)',
-  Subagent: 'var(--tool-subagent)',
-  'MCP tool': 'var(--tool-search)',
-  Tool: 'var(--tool-bash)',
-};
-
-const TOOL_KIND_GLYPH: Record<string, string> = {
-  Read: 'R',
-  Write: 'W',
-  Bash: '$',
-  Search: 'S',
-  Subagent: 'A',
-  'MCP tool': 'M',
-  Tool: 'T',
+const TOOL_KIND_META: Record<string, Partial<KindMeta>> = {
+  Read: { color: 'var(--tool-read)', glyph: 'R' },
+  Write: { color: 'var(--tool-write)', glyph: 'W' },
+  Bash: { color: '#0a0a0a', glyph: '>_', fg: '#4ade80' },
+  Search: { color: 'var(--tool-search)', glyph: 'S' },
+  Subagent: { color: 'var(--tool-subagent)', glyph: 'A' },
+  'MCP tool': { color: 'var(--tool-search)', glyph: 'M' },
+  Tool: { color: 'var(--tool-bash)', glyph: 'T' },
 };
 
 function metaFor(step: ConversationStep): KindMeta {
   if (step.kind !== 'tool') return KIND_META[step.kind];
   const sub = step.subtitle;
+  const override = TOOL_KIND_META[sub];
   return {
     label: sub,
-    color: TOOL_KIND_COLOR[sub] ?? KIND_META.tool.color,
-    glyph: TOOL_KIND_GLYPH[sub] ?? KIND_META.tool.glyph,
+    color: override?.color ?? KIND_META.tool.color,
+    glyph: override?.glyph ?? KIND_META.tool.glyph,
+    fg: override?.fg,
   };
 }
 
@@ -161,27 +154,48 @@ interface StepListProps {
 function StepList({ steps, selectedId, onSelect }: StepListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
-      {steps.map((s, i) => (
-        <StepRow
-          key={s.id}
-          index={i + 1}
-          step={s}
-          isSelected={s.id === selectedId}
-          onSelect={() => onSelect(s.id)}
-        />
-      ))}
+      {steps.map((s, i) => {
+        const next = steps[i + 1];
+        const dividerBeforeNext =
+          next !== undefined && next.turnNumber !== s.turnNumber;
+        const dividerHere = i > 0 && steps[i - 1]?.turnNumber !== s.turnNumber;
+        return (
+          <Fragment key={s.id}>
+            {dividerHere && <TurnDivider turnNumber={s.turnNumber} />}
+            <StepRow
+              step={s}
+              isSelected={s.id === selectedId}
+              onSelect={() => onSelect(s.id)}
+              hideBottomBorder={dividerBeforeNext}
+            />
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function TurnDivider({ turnNumber }: { turnNumber: number | null }) {
+  const label = turnNumber !== null ? `Turn ${turnNumber}` : 'Unattached';
+  return (
+    <div className="flex items-center gap-3 bg-muted/30">
+      <span className="h-px flex-1 bg-border" />
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
     </div>
   );
 }
 
 interface StepRowProps {
-  index: number;
   step: CumStep;
   isSelected: boolean;
   onSelect: () => void;
+  hideBottomBorder?: boolean;
 }
 
-function StepRow({ index, step, isSelected, onSelect }: StepRowProps) {
+function StepRow({ step, isSelected, onSelect, hideBottomBorder }: StepRowProps) {
   const meta = metaFor(step);
   const inputTok = step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
   return (
@@ -189,16 +203,17 @@ function StepRow({ index, step, isSelected, onSelect }: StepRowProps) {
       type="button"
       onClick={onSelect}
       className={
-        'grid w-full grid-cols-[36px_22px_1fr_auto_auto] items-center gap-2.5 border-b border-border px-3.5 py-2.5 text-left transition-colors last:border-b-0 hover:bg-muted ' +
+        'grid w-full grid-cols-[36px_22px_1fr_auto_auto] items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
+        (hideBottomBorder ? '' : 'border-b border-border last:border-b-0 ') +
         (isSelected ? 'bg-muted' : '')
       }
     >
       <span className="font-mono text-[11px] text-muted-foreground/70">
-        #{String(index).padStart(2, '0')}
+        {step.turnNumber !== null ? `T${step.turnNumber}` : '—'}
       </span>
       <span
-        className="inline-flex h-[18px] w-[18px] items-center justify-center rounded font-mono text-[10px] font-semibold text-white"
-        style={{ background: meta.color }}
+        className="inline-flex h-[18px] w-[18px] items-center justify-center rounded font-mono text-[10px] font-semibold tracking-tighter"
+        style={{ background: meta.color, color: meta.fg ?? '#fff' }}
       >
         {meta.glyph}
       </span>
@@ -271,8 +286,8 @@ function StepDetail({ step, steps }: StepDetailProps) {
       <div className="border-b border-border bg-muted px-4 py-3.5">
         <div className="flex items-center gap-2">
           <span
-            className="inline-flex h-[18px] w-[18px] items-center justify-center rounded font-mono text-[10px] font-semibold text-white"
-            style={{ background: meta.color }}
+            className="inline-flex h-[18px] w-[18px] items-center justify-center rounded font-mono text-[10px] font-semibold tracking-tighter"
+            style={{ background: meta.color, color: meta.fg ?? '#fff' }}
           >
             {meta.glyph}
           </span>
