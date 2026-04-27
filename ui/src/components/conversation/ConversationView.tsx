@@ -1,4 +1,5 @@
 import type { ConversationSummary, SpanNode } from '@/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContextWindowChart } from './ContextWindowChart';
 import { ConversationContextChart } from './ConversationContextChart';
 import { ConversationOverview } from './ConversationOverview';
@@ -28,14 +29,24 @@ export function ConversationView({
         <ConversationContextChart conversation={conversation} />
       </div>
       <div className="px-6">
-        <ConversationSteps conversation={conversation} />
+        <Tabs defaultValue="steps" className="w-full">
+          <TabsList>
+            <TabsTrigger value="steps">Steps</TabsTrigger>
+            <TabsTrigger value="messages">Messages</TabsTrigger>
+          </TabsList>
+          <TabsContent value="steps">
+            <ConversationSteps conversation={conversation} />
+          </TabsContent>
+          <TabsContent value="messages">
+            <TurnMessages
+              conversation={conversation}
+              selectedSpanId={selectedSpanId}
+              onSelectSpan={onSelectSpan}
+              showMeta={showMeta}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
-      <TurnMessages
-        conversation={conversation}
-        selectedSpanId={selectedSpanId}
-        onSelectSpan={onSelectSpan}
-        showMeta={showMeta}
-      />
     </div>
   );
 }

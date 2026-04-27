@@ -141,7 +141,7 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 
 ### General
 
-- [ ] Switch between token view and trace view
+- [x] Switch between token view and trace view
 - [ ] Attachment handling?
 - [x] Update session preview sidebar to pick better label
 - [x] Project Icons
@@ -150,14 +150,15 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 
 ### Trace view
 
-- [ ] Collapse/expand prompts/messages in trace view
 - [ ] Style
 
 ### Token view
 
 - [x] Better icons for token view
 - [ ] Graph(s) for token accumulation in token view
-- [ ] Better Turn separator display
+  - Inference vs. Request
+  - thinking vs. message?
+- [x] Better Turn separator display
 
 ### Marketing
 

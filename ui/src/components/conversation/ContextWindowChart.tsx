@@ -13,6 +13,7 @@ import {
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
+  ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
 import { SectionCard } from '@/components/ui/section-card';
@@ -27,6 +28,8 @@ interface Row {
   index: number;
   turnNumber: number;
   label: string;
+  turnLabel: string;
+  inferenceLabel: string;
   cacheRead: number;
   cacheCreation: number;
   freshInput: number;
@@ -137,10 +140,14 @@ function deriveRows(turns: readonly Turn[]): Row[] {
       if (typeof promptAttr === 'string') trigger = promptAttr;
     }
 
+    const turnLabel = `Turn ${span.turnNumber}`;
+    const inferenceLabel = `Inference ${perTurnCounter}`;
     rows.push({
       index: globalIndex,
       turnNumber: span.turnNumber,
-      label: `Turn ${span.turnNumber} · Inference ${perTurnCounter}`,
+      label: `${turnLabel} · ${inferenceLabel}`,
+      turnLabel,
+      inferenceLabel,
       cacheRead,
       cacheCreation,
       freshInput,
@@ -182,7 +189,7 @@ export function ContextWindowChart({ conversation }: Props) {
         <ChartContainer config={chartConfig} className="aspect-[16/5] w-full">
           <AreaChart
             data={rows}
-            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+            margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
           >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
@@ -193,12 +200,10 @@ export function ContextWindowChart({ conversation }: Props) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => {
-                const row = rows.find((r) => r.index === value);
-                return row ? row.label : String(value);
-              }}
+              height={44}
+              tick={<TwoLineTick rows={rows} />}
               interval="preserveStartEnd"
-              minTickGap={64}
+              minTickGap={32}
             />
             <YAxis
               tickLine={false}
@@ -256,12 +261,49 @@ export function ContextWindowChart({ conversation }: Props) {
   );
 }
 
-interface TooltipProps {
-  active?: boolean;
-  payload?: Array<{ payload: Row }>;
+interface TwoLineTickProps {
+  rows: Row[];
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+  textAnchor?: 'inherit' | 'end' | 'start' | 'middle';
 }
 
-function ContextTooltip({ active, payload }: TooltipProps) {
+function TwoLineTick({
+  rows,
+  x = 0,
+  y = 0,
+  payload,
+  textAnchor = 'middle',
+}: TwoLineTickProps) {
+  const row = rows.find((r) => r.index === payload?.value);
+  if (!row) return null;
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={textAnchor}
+      fill="currentColor"
+      className="fill-muted-foreground text-[11px]"
+    >
+      <tspan x={x} dy="0.71em">
+        {row.turnLabel}
+      </tspan>
+      <tspan x={x} dy="1.1em">
+        {row.inferenceLabel}
+      </tspan>
+    </text>
+  );
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: Row; dataKey?: string; name?: string; value?: number; color?: string }>;
+  label?: string | number;
+}
+
+function ContextTooltip(props: TooltipProps) {
+  const { active, payload } = props;
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   const triggerSnippet = row.trigger
@@ -284,28 +326,22 @@ function ContextTooltip({ active, payload }: TooltipProps) {
         ) : null}
       </div>
 
-      <div className="grid gap-1">
-        <TokenRow
-          color="var(--tok-cache-read)"
-          label="Cache read"
-          value={row.cacheRead}
-        />
-        <TokenRow
-          color="var(--tok-cache-write)"
-          label="Cache creation"
-          value={row.cacheCreation}
-        />
-        <TokenRow
-          color="var(--tok-fresh)"
-          label="Fresh input"
-          value={row.freshInput}
-        />
-        <div className="mt-0.5 flex items-center justify-between border-t border-border/50 pt-1">
-          <span className="font-medium">Total context</span>
-          <span className="font-mono font-medium tabular-nums">
-            {fmt.n(row.total)}
-          </span>
-        </div>
+      <ChartTooltipContent
+        active={active}
+        payload={payload}
+        hideLabel
+        indicator="dot"
+        formatter={(value) =>
+          typeof value === 'number' ? fmt.n(value) : String(value)
+        }
+        className="grid gap-1 border-0 bg-transparent p-0 shadow-none"
+      />
+
+      <div className="flex items-center justify-between border-t border-border/50 pt-1">
+        <span className="font-medium">Total context</span>
+        <span className="font-mono font-medium tabular-nums">
+          {fmt.n(row.total)}
+        </span>
       </div>
 
       {row.precedingActions.length > 0 ? (
@@ -345,27 +381,6 @@ function ContextTooltip({ active, payload }: TooltipProps) {
           </p>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-interface TokenRowProps {
-  color: string;
-  label: string;
-  value: number;
-}
-
-function TokenRow({ color, label, value }: TokenRowProps) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="flex items-center gap-2">
-        <span
-          className="h-2 w-2 shrink-0 rounded-[2px]"
-          style={{ background: color }}
-        />
-        <span className="text-muted-foreground">{label}</span>
-      </span>
-      <span className="font-mono tabular-nums">{fmt.n(value)}</span>
     </div>
   );
 }

@@ -93,9 +93,22 @@ export function TurnMessages({
   const lastUnattachedIndex = unattached.length - 1;
   const lastEntryIsUnattached = unattached.length > 0;
 
+  const totalEntries = turns.length + unattached.length;
+  const turnCount = turns.length;
+
   return (
-    <div ref={railContainerRef} className="relative">
-      {railHeight !== null && (
+    <section>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          Messages
+        </h2>
+        <span className="text-xs text-muted-foreground/70">
+          {totalEntries} message{totalEntries === 1 ? '' : 's'} · {turnCount} turn
+          {turnCount === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div ref={railContainerRef} className="relative">
+        {railHeight !== null && (
         <div
           aria-hidden
           style={{ height: railHeight }}
@@ -170,6 +183,7 @@ export function TurnMessages({
           </ChatMessage>
         );
       })}
-    </div>
+      </div>
+    </section>
   );
 }
