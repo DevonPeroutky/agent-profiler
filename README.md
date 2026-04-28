@@ -147,6 +147,10 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 - [x] Project Icons
 - [ ] Production-ize
 - [ ] Harness agnostic?
+- Subagent view?
+- [ ] Context per inference Graph
+  - [ ] Stacked bar graph by context type?
+  - [ ] Pie chart in tooltip of size of tool result in bytes?
 
 ### Trace view
 
@@ -155,7 +159,7 @@ Every turn root and every `subagent:<type>` span carries token aggregates dedupe
 ### Token view
 
 - [x] Better icons for token view
-- [ ] Graph(s) for token accumulation in token view
+- [ ] **Graph(s) for token accumulation in token view. FULLY UNDERSTAND THIS**
   - Inference vs. Request
   - thinking vs. message?
 - [x] Better Turn separator display

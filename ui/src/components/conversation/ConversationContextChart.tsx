@@ -14,6 +14,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { SectionCard } from '@/components/ui/section-card';
+import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
 import type { ConversationSummary } from '@/types';
 import {
   buildConversationSteps,
@@ -256,11 +257,12 @@ function ContextTooltip({ active, payload }: TooltipProps) {
   const overflow = datum.intervening.length - items.length;
 
   return (
-    <div className="w-[20rem] overflow-hidden rounded-lg border border-border/50 bg-background text-xs shadow-xl">
-      <div className="grid gap-2 overflow-x-auto px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-3 whitespace-nowrap">
-        <span className="font-medium">Inference {datum.idx}</span>
-        <span className="font-mono text-[11px] text-muted-foreground">
+    <ChartTooltipShell>
+      <div className="flex min-w-0 items-baseline justify-between gap-3">
+        <span className="whitespace-nowrap font-medium">
+          Inference {datum.idx}
+        </span>
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {datum.turnNumber !== null
             ? `Turn ${datum.turnNumber}`
             : 'unattached'}
@@ -346,7 +348,7 @@ function ContextTooltip({ active, payload }: TooltipProps) {
               {items.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px]"
+                  className="flex min-w-0 items-center gap-1.5 text-[11.5px]"
                 >
                   <span
                     className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded font-mono text-[9px] font-semibold text-white"
@@ -354,7 +356,9 @@ function ContextTooltip({ active, payload }: TooltipProps) {
                   >
                     {KIND_GLYPH[s.kind]}
                   </span>
-                  <span className="text-foreground">{s.label}</span>
+                  <span className="min-w-0 truncate text-foreground">
+                    {s.label}
+                  </span>
                 </li>
               ))}
               {overflow > 0 && (
@@ -366,7 +370,6 @@ function ContextTooltip({ active, payload }: TooltipProps) {
           </>
         )}
       </div>
-      </div>
-    </div>
+    </ChartTooltipShell>
   );
 }

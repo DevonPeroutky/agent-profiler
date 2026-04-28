@@ -17,6 +17,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { SectionCard } from '@/components/ui/section-card';
+import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
 import { fmt } from './format';
 
 interface PrecedingAction {
@@ -313,7 +314,7 @@ function ContextTooltip(props: TooltipProps) {
   const remaining = row.precedingActions.length - visibleActions.length;
 
   return (
-    <div className="grid w-max min-w-[16rem] max-w-[min(28rem,calc(100vw-3rem))] gap-2 overflow-hidden rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+    <ChartTooltipShell className="py-2">
       <div className="flex min-w-0 items-baseline justify-between gap-2">
         <span className="font-medium">
           Inference #{row.index}{' '}
@@ -381,6 +382,6 @@ function ContextTooltip(props: TooltipProps) {
           </p>
         </div>
       ) : null}
-    </div>
+    </ChartTooltipShell>
   );
 }

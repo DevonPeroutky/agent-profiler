@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-palette="cool">
+<head>
+<meta charset="UTF-8">
+<title>Token Usage — Claude Code transcript</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#0a0a0a"/>
+  <rect x="30" y="130" width="20" height="40" fill="#60a5fa" rx="2"/>
+  <rect x="60" y="100" width="20" height="70" fill="#34d399" rx="2"/>
+  <rect x="90" y="70" width="20" height="100" fill="#fbbf24" rx="2"/>
+  <rect x="120" y="50" width="20" height="120" fill="#f472b6" rx="2"/>
+  <rect x="150" y="40" width="20" height="130" fill="#fafafa" rx="2"/>
+</svg>
+</template>
+
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-elev: #fafafa;
+  --bg-elev-2: #f4f4f5;
+  --border: #e8e8ea;
+  --border-strong: #d4d4d8;
+  --fg: #09090b;
+  --fg-muted: #71717a;
+  --fg-subtle: #a1a1aa;
+  --c-fresh: #2563eb;
+  --c-cache-read: #10b981;
+  --c-cache-write: #f59e0b;
+  --c-output: #ec4899;
+  --t-read: #3b82f6;
+  --t-write: #8b5cf6;
+  --t-bash: #ef4444;
+  --t-search: #14b8a6;
+  --t-subagent: #f97316;
+  --t-inference: #18181b;
+  --t-user: #71717a;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --radius: 8px;
+  --radius-sm: 6px;
+}
+[data-theme="dark"] {
+  --bg: #09090b;
+  --bg-elev: #0f0f11;
+  --bg-elev-2: #17171a;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --c-fresh: #60a5fa;
+  --c-cache-read: #34d399;
+  --c-cache-write: #fbbf24;
+  --c-output: #f472b6;
+  --t-read: #60a5fa;
+  --t-write: #a78bfa;
+  --t-bash: #f87171;
+  --t-search: #2dd4bf;
+  --t-subagent: #fb923c;
+  --t-inference: #fafafa;
+  --t-user: #a1a1aa;
+}
+[data-palette="warm"] {
+  --c-fresh: #dc2626;
+  --c-cache-read: #d97706;
+  --c-cache-write: #ca8a04;
+  --c-output: #9333ea;
+  --t-read: #dc2626;
+  --t-write: #9333ea;
+  --t-bash: #ea580c;
+  --t-search: #ca8a04;
+  --t-subagent: #db2777;
+}
+[data-theme="dark"][data-palette="warm"] {
+  --c-fresh: #f87171;
+  --c-cache-read: #fb923c;
+  --c-cache-write: #facc15;
+  --c-output: #c084fc;
+}
+[data-palette="mono"] {
+  --c-fresh: #18181b;
+  --c-cache-read: #52525b;
+  --c-cache-write: #a1a1aa;
+  --c-output: #d4d4d8;
+  --t-read: #27272a;
+  --t-write: #52525b;
+  --t-bash: #18181b;
+  --t-search: #71717a;
+  --t-subagent: #a1a1aa;
+}
+[data-theme="dark"][data-palette="mono"] {
+  --c-fresh: #fafafa;
+  --c-cache-read: #a1a1aa;
+  --c-cache-write: #71717a;
+  --c-output: #52525b;
+  --t-read: #e4e4e7;
+  --t-write: #a1a1aa;
+  --t-bash: #fafafa;
+  --t-search: #71717a;
+  --t-subagent: #52525b;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: var(--sans);
+  background: var(--bg); color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px; line-height: 1.5;
+}
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+.brand .dot { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--c-fresh), var(--c-output)); }
+.brand .sep { color: var(--fg-subtle); font-weight: 400; }
+.brand .path { color: var(--fg-muted); font-family: var(--mono); font-size: 12.5px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.btn {
+  height: 30px; padding: 0 10px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg); color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit; font-size: 12.5px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.btn:hover { background: var(--bg-elev-2); border-color: var(--border-strong); }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn svg { width: 14px; height: 14px; }
+.page {
+  max-width: 1440px; margin: 0 auto;
+  padding: 28px;
+  display: flex; flex-direction: column; gap: 28px;
+}
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-head h2 {
+  margin: 0; font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+.section-head .hint { font-size: 12px; color: var(--fg-subtle); }
+.summary {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.metric {
+  background: var(--bg);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 86px;
+}
+.metric .label {
+  font-size: 11.5px; color: var(--fg-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 500;
+}
+.metric .value {
+  font-family: var(--mono);
+  font-size: 24px; font-weight: 500;
+  letter-spacing: -0.02em; line-height: 1.15;
+}
+.metric .value .unit { font-size: 13px; color: var(--fg-muted); margin-left: 3px; font-weight: 400; }
+.metric .sub { font-size: 12px; color: var(--fg-muted); }
+.stacked-bar {
+  display: flex; height: 10px;
+  border-radius: 4px; overflow: hidden;
+  background: var(--bg-elev-2);
+  margin: 6px 0 12px;
+}
+.stacked-bar span { display: block; height: 100%; }
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.panel-head {
+  padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title { font-weight: 600; font-size: 14px; }
+.panel-title .sub { font-weight: 400; color: var(--fg-muted); margin-left: 8px; font-size: 12.5px; }
+.tabs { display: flex; background: var(--bg-elev-2); border-radius: var(--radius-sm); padding: 3px; }
+.tabs button {
+  height: 26px; padding: 0 12px;
+  background: transparent; border: none;
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  color: var(--fg-muted);
+  border-radius: 4px; cursor: pointer;
+}
+.tabs button[aria-selected="true"] {
+  background: var(--bg); color: var(--fg);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .tabs button[aria-selected="true"] { background: var(--bg-elev); }
+.legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  padding: 10px 18px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--fg-muted); }
+.legend-item .swatch { width: 10px; height: 10px; border-radius: 2px; }
+.chart-body { padding: 18px; }
+.waterfall { width: 100%; overflow-x: auto; }
+.wf-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+.wf-rows { display: flex; flex-direction: column; }
+.wf-axis {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.wf-axis .wf-grid {
+  position: relative; height: 18px;
+  font-size: 11px; color: var(--fg-subtle);
+  font-family: var(--mono);
+}
+.wf-axis .wf-grid span { position: absolute; top: 0; transform: translateX(-50%); }
+.wf-label { font-size: 11.5px; font-family: var(--mono); color: var(--fg-subtle); text-align: right; }
+.wf-track {
+  position: relative; height: 26px;
+  cursor: pointer; border-radius: 4px;
+}
+.wf-track:hover { background: var(--bg-elev); }
+.wf-track.is-selected { background: var(--bg-elev-2); outline: 1px solid var(--border-strong); }
+.wf-cum {
+  position: absolute; top: 4px; height: 18px;
+  background: var(--bg-elev-2);
+  border-radius: 3px;
+}
+.wf-delta {
+  position: absolute; top: 4px; height: 18px;
+  display: flex; border-radius: 3px; overflow: hidden;
+}
+.wf-delta > span { display: block; height: 100%; }
+.wf-tag {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  font-size: 11px; color: var(--fg-muted);
+  font-family: var(--mono); white-space: nowrap; pointer-events: none;
+}
+.sankey-svg { width: 100%; display: block; }
+.sankey-node rect { cursor: pointer; transition: opacity 120ms; }
+.sankey-node text { font-size: 11.5px; fill: var(--fg); font-family: var(--sans); font-weight: 500; pointer-events: none; }
+.sankey-node text.sub { fill: var(--fg-muted); font-family: var(--mono); font-weight: 400; font-size: 10.5px; }
+.sankey-link { transition: opacity 150ms; }
+.sankey.is-hovering .sankey-link:not(.is-active) { opacity: 0.08; }
+.sankey.is-hovering .sankey-node rect:not(.is-active) { opacity: 0.3; }
+.split {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+}
+@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+.steplist {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.step {
+  display: grid;
+  grid-template-columns: 36px 22px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 80ms;
+}
+.step:last-child { border-bottom: none; }
+.step:hover { background: var(--bg-elev); }
+.step.is-selected { background: var(--bg-elev-2); }
+.step .step-idx { font-family: var(--mono); font-size: 11px; color: var(--fg-subtle); }
+.kind-icon {
+  width: 18px; height: 18px; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: white;
+}
+.step .step-label { font-size: 13px; font-weight: 500; }
+.step .step-meta { font-size: 11.5px; color: var(--fg-muted); font-family: var(--mono); }
+.step .step-tokens { font-family: var(--mono); font-size: 11.5px; color: var(--fg-muted); display: flex; gap: 10px; }
+.step .step-tokens .tok-in::before { content: '→ '; color: var(--fg-subtle); }
+.step .step-tokens .tok-out::before { content: '← '; color: var(--fg-subtle); }
+.step .step-cum { font-family: var(--mono); font-size: 11px; color: var(--fg-subtle); min-width: 66px; text-align: right; }
+.detail {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: sticky; top: 80px;
+  max-height: calc(100vh - 110px);
+  display: flex; flex-direction: column;
+}
+.detail-head { padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
+.detail-head .d-label { font-size: 13px; font-weight: 600; }
+.detail-head .d-meta { font-size: 11.5px; color: var(--fg-muted); font-family: var(--mono); margin-top: 3px; }
+.detail-body { padding: 14px 16px; overflow-y: auto; flex: 1; }
+.tok-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border);
+  border-radius: 6px; overflow: hidden; margin-bottom: 14px;
+}
+.tok-cell { background: var(--bg); padding: 9px 11px; }
+.tok-cell .lbl { font-size: 10.5px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.tok-cell .val { font-family: var(--mono); font-size: 16px; font-weight: 500; }
+.tok-cell .val .unit { font-size: 11px; color: var(--fg-muted); font-weight: 400; margin-left: 2px; }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 12px; margin-bottom: 10px; }
+.kv dt { color: var(--fg-muted); }
+.kv dd { margin: 0; font-family: var(--mono); }
+.code {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.code .k { color: var(--c-fresh); }
+.code .s { color: var(--c-cache-read); }
+.section-title {
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); margin: 12px 0 6px;
+}
+.empty { padding: 40px 20px; text-align: center; color: var(--fg-subtle); font-size: 12.5px; }
+.tweaks {
+  position: fixed; right: 20px; bottom: 20px;
+  width: 240px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+  font-size: 12px; z-index: 50;
+  display: none;
+}
+.tweaks.is-open { display: block; }
+.tweaks h3 {
+  margin: 0 0 10px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); font-weight: 600;
+}
+.tweak-row { margin-bottom: 10px; }
+.tweak-row label { display: block; font-size: 11.5px; color: var(--fg-muted); margin-bottom: 4px; }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 8px; font-size: 11.5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  cursor: pointer; font-family: inherit;
+}
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.detail-body::-webkit-scrollbar, .code::-webkit-scrollbar { width: 8px; }
+.detail-body::-webkit-scrollbar-thumb, .code::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ─── Synthetic transcript data ───
+window.TRANSCRIPT = (() => {
+  const steps = [];
+  let cumInput = 0, cumOutput = 0, cumFresh = 0, cumCacheRead = 0, cumCacheWrite = 0;
+  let peakContext = 0;
+  let t = 0;
+  const tick = (ms) => { t += ms; return t; };
+  const add = (s) => {
+    const input = (s.freshInput||0) + (s.cacheRead||0) + (s.cacheWrite||0);
+    const output = s.output || 0;
+    cumInput += input; cumOutput += output;
+    cumFresh += s.freshInput||0;
+    cumCacheRead += s.cacheRead||0;
+    cumCacheWrite += s.cacheWrite||0;
+    peakContext = Math.max(peakContext, input);
+    steps.push({ ...s, input, output, cumInput, cumOutput, cumTotal: cumInput + cumOutput, contextSize: input });
+  };
+  add({ id:1, kind:'user', label:'User prompt', tool:'user', t:tick(0), dur:0, freshInput:340, output:0,
+    payload:{ text:"Our login flow in app/auth/login/page.tsx is messy. Can you refactor it to use React Hook Form + zod, keep the server action, and handle error states cleanly? Don't break /register." } });
+  add({ id:2, kind:'inference', label:'Plan the refactor', tool:'inference', t:tick(1800), dur:1800,
+    freshInput:8420, cacheWrite:4200, output:612,
+    payload:{ reasoning:"Read login, register, useAuth, check package.json, draft plan, execute edits.", toolsPlanned:['Read','Grep','Read','Edit','Edit'] } });
+  add({ id:3, kind:'tool', label:'Read package.json', tool:'read', t:tick(420), dur:420,
+    payload:{ tool:'Read', params:{ file_path:'package.json' }, result:'{ dependencies: { next: 15.2.1, react: 19.0.0, zod: 3.23.8 } } — 1.2kb' } });
+  add({ id:4, kind:'inference', label:'Process Read result', tool:'inference', t:tick(1100), dur:1100,
+    freshInput:1240, cacheRead:12620, output:180,
+    payload:{ reasoning:"zod already installed; no react-hook-form. Need to add." } });
+  add({ id:5, kind:'tool', label:'Read login/page.tsx', tool:'read', t:tick(310), dur:310,
+    payload:{ tool:'Read', params:{ file_path:'app/auth/login/page.tsx' }, result:'148 lines, 3.8kb — client component with useState, useAuth, inline validation' } });
+  add({ id:6, kind:'tool', label:'Read register/page.tsx', tool:'read', t:tick(280), dur:280,
+    payload:{ tool:'Read', params:{ file_path:'app/auth/register/page.tsx' }, result:'201 lines, 5.1kb — similar pattern' } });
+  add({ id:7, kind:'tool', label:'Grep useAuth', tool:'search', t:tick(180), dur:180,
+    payload:{ tool:'Grep', params:{ pattern:'useAuth', output_mode:'files_with_matches' }, result:'4 files' } });
+  add({ id:8, kind:'tool', label:'Read useAuth hook', tool:'read', t:tick(240), dur:240,
+    payload:{ tool:'Read', params:{ file_path:'hooks/useAuth.ts' }, result:'62 lines — wraps fetch, holds loading/error state' } });
+  add({ id:9, kind:'inference', label:'Synthesize, draft plan', tool:'inference', t:tick(2400), dur:2400,
+    freshInput:6180, cacheRead:14040, cacheWrite:6200, output:920,
+    payload:{ reasoning:"Plan: shared zod schemas, refactor login, keep register minimal.", planLength:5 } });
+  add({ id:10, kind:'tool', label:'Subagent: audit tests', tool:'subagent', t:tick(8400), dur:8400,
+    freshInput:2100, cacheWrite:1200, output:340,
+    payload:{ tool:'Task', params:{ subagent_type:'general-purpose', prompt:'Find tests touching login/register, summarize.' }, result:'3 tests in __tests__/auth/.' } });
+  add({ id:11, kind:'tool', label:'Write lib/validation.ts', tool:'write', t:tick(380), dur:380,
+    payload:{ tool:'Write', params:{ file_path:'lib/validation.ts' }, result:'File created (34 lines)' } });
+  add({ id:12, kind:'inference', label:'Generate login refactor', tool:'inference', t:tick(4200), dur:4200,
+    freshInput:3880, cacheRead:26420, cacheWrite:8400, output:2840,
+    payload:{ reasoning:"Rewrite login/page.tsx to use RHF + zodResolver." } });
+  add({ id:13, kind:'tool', label:'Edit login/page.tsx', tool:'write', t:tick(290), dur:290,
+    payload:{ tool:'Edit', params:{ file_path:'app/auth/login/page.tsx' }, result:'File updated' } });
+  add({ id:14, kind:'tool', label:'Bash: npm install', tool:'bash', t:tick(4200), dur:4200,
+    payload:{ tool:'Bash', params:{ command:'npm install react-hook-form @hookform/resolvers' }, result:'added 2 packages, 0 vulnerabilities' } });
+  add({ id:15, kind:'tool', label:'Bash: typecheck', tool:'bash', t:tick(5800), dur:5800,
+    payload:{ tool:'Bash', params:{ command:'npx tsc --noEmit' }, result:'1 error: Type string|undefined not assignable to string.' } });
+  add({ id:16, kind:'inference', label:'Diagnose TS error', tool:'inference', t:tick(1800), dur:1800,
+    freshInput:920, cacheRead:38340, output:420,
+    payload:{ reasoning:"defaultValue needs empty string fallback." } });
+  add({ id:17, kind:'tool', label:'Edit login/page.tsx (fix)', tool:'write', t:tick(260), dur:260,
+    payload:{ tool:'Edit', params:{ file_path:'app/auth/login/page.tsx' }, result:'File updated' } });
+  add({ id:18, kind:'tool', label:'Bash: typecheck retry', tool:'bash', t:tick(5400), dur:5400,
+    payload:{ tool:'Bash', params:{ command:'npx tsc --noEmit' }, result:'✓ no errors' } });
+  add({ id:19, kind:'tool', label:'Bash: login tests', tool:'bash', t:tick(7200), dur:7200,
+    payload:{ tool:'Bash', params:{ command:'npm test -- login.test.tsx' }, result:'2 passed, 2 total' } });
+  add({ id:20, kind:'tool', label:'Bash: register tests', tool:'bash', t:tick(6800), dur:6800,
+    payload:{ tool:'Bash', params:{ command:'npm test -- register.test.tsx' }, result:'3 passed, 3 total' } });
+  add({ id:21, kind:'inference', label:'Compose final response', tool:'inference', t:tick(2900), dur:2900,
+    freshInput:1840, cacheRead:48620, output:1120,
+    payload:{ reasoning:"All green. Summarize work.", finalMessage:"Refactored login to RHF + zod. Added lib/validation.ts. All tests pass." } });
+  add({ id:22, kind:'user', label:'User follow-up', tool:'user', t:tick(24000), dur:0, freshInput:68,
+    payload:{ text:"Nice. Extract <FormField> so register can use it without duplicating?" } });
+  add({ id:23, kind:'inference', label:'Plan extraction', tool:'inference', t:tick(1600), dur:1600,
+    freshInput:240, cacheRead:52480, cacheWrite:1800, output:480,
+    payload:{ reasoning:"Create FormField, refactor login's inline field, swap register's AuthField." } });
+  add({ id:24, kind:'tool', label:'Write FormField.tsx', tool:'write', t:tick(340), dur:340,
+    payload:{ tool:'Write', params:{ file_path:'components/forms/FormField.tsx' }, result:'File created (48 lines)' } });
+  add({ id:25, kind:'tool', label:'Edit login/page.tsx', tool:'write', t:tick(260), dur:260,
+    payload:{ tool:'Edit', params:{ file_path:'app/auth/login/page.tsx' }, result:'File updated (swap to FormField)' } });
+  add({ id:26, kind:'tool', label:'Edit register/page.tsx', tool:'write', t:tick(290), dur:290,
+    payload:{ tool:'Edit', params:{ file_path:'app/auth/register/page.tsx' }, result:'File updated (3 replacements)' } });
+  add({ id:27, kind:'tool', label:'Bash: full test suite', tool:'bash', t:tick(12400), dur:12400,
+    payload:{ tool:'Bash', params:{ command:'npm test' }, result:'47 passed, 47 total · 11.8s' } });
+  add({ id:28, kind:'inference', label:'Final response', tool:'inference', t:tick(1900), dur:1900,
+    freshInput:620, cacheRead:58400, output:340,
+    payload:{ reasoning:"Brief summary.", finalMessage:"Extracted FormField, swapped in login and register. 47 tests green." } });
+  return {
+    steps,
+    summary: {
+      totalInput: cumInput, totalOutput: cumOutput,
+      totalFresh: cumFresh, totalCacheRead: cumCacheRead, totalCacheWrite: cumCacheWrite,
+      peakContext,
+      cacheHitRate: cumCacheRead / Math.max(1, cumInput),
+      toolCalls: steps.filter(s => s.kind === 'tool').length,
+      inferences: steps.filter(s => s.kind === 'inference').length,
+      duration: t,
+    },
+  };
+})();
+</script>
+
+<script type="text/babel">
+// ─── Helpers ───
+const fmt = {
+  n: (x) => {
+    if (x == null) return '—';
+    if (x === 0) return '0';
+    if (x < 1000) return String(x);
+    if (x < 1e6) return (x / 1000).toFixed(x < 10000 ? 2 : 1).replace(/\.0+$/, '') + 'k';
+    return (x / 1e6).toFixed(2) + 'M';
+  },
+  pct: (x) => (x * 100).toFixed(1) + '%',
+  ms: (ms) => {
+    if (ms < 1000) return ms + 'ms';
+    if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return m + 'm ' + String(s).padStart(2, '0') + 's';
+  },
+};
+const toolMeta = {
+  user:      { label: 'User',      color: 'var(--t-user)',      glyph: 'U' },
+  inference: { label: 'Inference', color: 'var(--t-inference)', glyph: '\u221E' },
+  read:      { label: 'Read',      color: 'var(--t-read)',      glyph: 'R' },
+  write:     { label: 'Write',     color: 'var(--t-write)',     glyph: 'W' },
+  bash:      { label: 'Bash',      color: 'var(--t-bash)',      glyph: '$' },
+  search:    { label: 'Search',    color: 'var(--t-search)',    glyph: 'S' },
+  subagent:  { label: 'Subagent',  color: 'var(--t-subagent)',  glyph: 'A' },
+};
+const categoryColors = {
+  fresh:      'var(--c-fresh)',
+  cacheRead:  'var(--c-cache-read)',
+  cacheWrite: 'var(--c-cache-write)',
+  output:     'var(--c-output)',
+};
+const categoryLabels = {
+  fresh:      'Fresh input',
+  cacheRead:  'Cache read',
+  cacheWrite: 'Cache write',
+  output:     'Output',
+};
+const IconSun = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+  </svg>
+);
+const IconMoon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+const IconSliders = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+    <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+    <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+  </svg>
+);
+
+function highlightJSON(obj) {
+  try {
+    const s = JSON.stringify(obj, null, 2);
+    const openK = '\u003cspan class="k">';
+    const openS = '\u003cspan class="s">';
+    const close = '\u003c/span>';
+    return s
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"(\s*:)/g, openK + '"$1"' + close + '$2')
+      .replace(/: "([^"\\]*(?:\\.[^"\\]*)*)"/g, ': ' + openS + '"$1"' + close);
+  } catch (e) { return String(obj); }
+}
+
+// ─── Summary ───
+function Summary({ data }) {
+  const s = data.summary;
+  const fresh = s.totalInput === 0 ? 0 : s.totalFresh / s.totalInput;
+  const cr = s.totalInput === 0 ? 0 : s.totalCacheRead / s.totalInput;
+  const cw = s.totalInput === 0 ? 0 : s.totalCacheWrite / s.totalInput;
+  const metrics = [
+    { label: 'Total input', value: fmt.n(s.totalInput), unit: 'tok', sub: (
+      <div className="stacked-bar" style={{ margin: '8px 0 0', height: 4 }}>
+        <span style={{ width: (fresh * 100) + '%', background: categoryColors.fresh }}/>
+        <span style={{ width: (cr * 100) + '%', background: categoryColors.cacheRead }}/>
+        <span style={{ width: (cw * 100) + '%', background: categoryColors.cacheWrite }}/>
+      </div>
+    )},
+    { label: 'Total output', value: fmt.n(s.totalOutput), unit: 'tok',
+      sub: <div className="sub">{fmt.n(Math.round(s.totalOutput / Math.max(1, s.inferences)))} avg / inference</div> },
+    { label: 'Peak context', value: fmt.n(s.peakContext), unit: 'tok',
+      sub: <div className="sub">{fmt.pct(s.peakContext / 200000)} of 200k window</div> },
+    { label: 'Cache hit rate', value: fmt.pct(s.cacheHitRate), unit: '',
+      sub: (
+        <div className="stacked-bar" style={{ margin: '8px 0 0', height: 4 }}>
+          <span style={{ width: (s.cacheHitRate * 100) + '%', background: categoryColors.cacheRead }}/>
+        </div>
+      )},
+    { label: 'Tool calls', value: String(s.toolCalls), unit: '',
+      sub: <div className="sub">{s.inferences} inferences</div> },
+    { label: 'Duration', value: fmt.ms(s.duration), unit: '',
+      sub: <div className="sub">across {data.steps.filter(x => x.kind === 'user').length} turns</div> },
+  ];
+  return (
+    <div className="summary">
+      {metrics.map((m, i) => (
+        <div className="metric" key={i}>
+          <div className="label">{m.label}</div>
+          <div className="value">{m.value}{m.unit && <span className="unit">{m.unit}</span>}</div>
+          {m.sub}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Waterfall ───
+function Waterfall({ data, selectedId, onSelect }) {
+  const steps = data.steps;
+  const maxCum = Math.max(...steps.map(s => s.cumTotal));
+  const ticks = (() => {
+    const target = 5;
+    const raw = maxCum / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / mag;
+    const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+    const out = [];
+    for (let v = 0; v <= maxCum * 1.02; v += step) out.push(v);
+    return out;
+  })();
+  return (
+    <div className="waterfall">
+      <div className="wf-axis">
+        <div/>
+        <div className="wf-grid">
+          {ticks.map((v, i) => (
+            <span key={i} style={{ left: (v / maxCum * 100) + '%' }}>{fmt.n(v)}</span>
+          ))}
+        </div>
+      </div>
+      <div className="wf-rows">
+        {steps.map(s => {
+          const prevCum = s.cumTotal - s.input - s.output;
+          const cumPct = (prevCum / maxCum) * 100;
+          const deltaWidthPct = ((s.input + s.output) / maxCum) * 100;
+          const total = s.input + s.output;
+          const segs = total === 0 ? [] : [
+            { key: 'fresh',      v: s.freshInput||0,  c: categoryColors.fresh },
+            { key: 'cacheRead',  v: s.cacheRead||0,   c: categoryColors.cacheRead },
+            { key: 'cacheWrite', v: s.cacheWrite||0,  c: categoryColors.cacheWrite },
+            { key: 'output',     v: s.output||0,      c: categoryColors.output },
+          ].filter(x => x.v > 0);
+          const isSel = s.id === selectedId;
+          const meta = toolMeta[s.tool] || toolMeta.inference;
+          return (
+            <div className="wf-row" key={s.id}>
+              <div className="wf-label">#{String(s.id).padStart(2, '0')}</div>
+              <div
+                className={"wf-track" + (isSel ? " is-selected" : "")}
+                onClick={() => onSelect(s.id)}
+                title={s.label + ' · +' + fmt.n(total) + ' tokens'}
+              >
+                <div className="wf-cum" style={{ width: cumPct + '%' }}/>
+                {total > 0 && (
+                  <div className="wf-delta" style={{ left: cumPct + '%', width: deltaWidthPct + '%' }}>
+                    {segs.map(seg => (
+                      <span key={seg.key} style={{ width: (seg.v / total * 100) + '%', background: seg.c }}/>
+                    ))}
+                  </div>
+                )}
+                <div className="wf-tag" style={{ left: 'calc(' + Math.min(cumPct + deltaWidthPct, 95) + '% + 8px)' }}>
+                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 2, background: meta.color, marginRight: 6, verticalAlign: 'middle' }}/>
+                  {s.label}
+                  {total > 0 && <span style={{ color: 'var(--fg-subtle)', marginLeft: 6 }}>+{fmt.n(total)}</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sankey ───
+function Sankey({ data }) {
+  const [hover, setHover] = React.useState(null);
+  const steps = data.steps;
+  const toolAgg = {};
+  for (const s of steps) {
+    const t = s.tool;
+    if (!toolAgg[t]) toolAgg[t] = { fresh: 0, cacheRead: 0, cacheWrite: 0, output: 0, total: 0, count: 0 };
+    toolAgg[t].fresh += s.freshInput || 0;
+    toolAgg[t].cacheRead += s.cacheRead || 0;
+    toolAgg[t].cacheWrite += s.cacheWrite || 0;
+    toolAgg[t].output += s.output || 0;
+    toolAgg[t].count += 1;
+    toolAgg[t].total += (s.freshInput||0)+(s.cacheRead||0)+(s.cacheWrite||0)+(s.output||0);
+  }
+  const toolOrder = ['user','inference','read','search','write','bash','subagent'];
+  const tools = toolOrder.filter(t => toolAgg[t] && toolAgg[t].total > 0);
+  const cats = ['fresh','cacheRead','cacheWrite','output'];
+  const W = 1000, H = 460, padY = 20;
+  const leftX = 160, leftW = 14;
+  const rightX = W - 160 - leftW, rightW = 14;
+  const totalAll = tools.reduce((a, t) => a + toolAgg[t].total, 0);
+  const gapLeft = 10, gapRight = 14;
+  const leftUsable = H - padY * 2 - gapLeft * (tools.length - 1);
+  const rightUsable = H - padY * 2 - gapRight * (cats.length - 1);
+
+  const leftNodes = [];
+  { let y = padY;
+    for (const t of tools) {
+      const h = (toolAgg[t].total / totalAll) * leftUsable;
+      leftNodes.push({ key: t, y, h, total: toolAgg[t].total, count: toolAgg[t].count });
+      y += h + gapLeft;
+    } }
+
+  const rightTotals = {
+    fresh: tools.reduce((a, t) => a + toolAgg[t].fresh, 0),
+    cacheRead: tools.reduce((a, t) => a + toolAgg[t].cacheRead, 0),
+    cacheWrite: tools.reduce((a, t) => a + toolAgg[t].cacheWrite, 0),
+    output: tools.reduce((a, t) => a + toolAgg[t].output, 0),
+  };
+  const rightNodes = [];
+  { let y = padY;
+    for (const c of cats) {
+      const h = (rightTotals[c] / totalAll) * rightUsable;
+      rightNodes.push({ key: c, y, h, total: rightTotals[c] });
+      y += h + gapRight;
+    } }
+
+  const leftOffset = Object.fromEntries(leftNodes.map(n => [n.key, 0]));
+  const rightOffset = Object.fromEntries(rightNodes.map(n => [n.key, 0]));
+  const links = [];
+  for (const n of leftNodes) {
+    for (const c of cats) {
+      const v = toolAgg[n.key][c];
+      if (!v) continue;
+      const sourceH = (v / totalAll) * leftUsable;
+      const targetH = (v / totalAll) * rightUsable;
+      const sy = n.y + leftOffset[n.key];
+      const ty = rightNodes.find(rn => rn.key === c).y + rightOffset[c];
+      leftOffset[n.key] += sourceH;
+      rightOffset[c] += targetH;
+      links.push({ tool: n.key, cat: c, value: v, sy, sh: sourceH, ty, th: targetH });
+    }
+  }
+
+  const linkPath = (L) => {
+    const x1 = leftX + leftW, x2 = rightX;
+    const cx = (x1 + x2) / 2;
+    const y1a = L.sy, y1b = L.sy + L.sh;
+    const y2a = L.ty, y2b = L.ty + L.th;
+    return 'M ' + x1 + ' ' + y1a +
+      ' C ' + cx + ' ' + y1a + ', ' + cx + ' ' + y2a + ', ' + x2 + ' ' + y2a +
+      ' L ' + x2 + ' ' + y2b +
+      ' C ' + cx + ' ' + y2b + ', ' + cx + ' ' + y1b + ', ' + x1 + ' ' + y1b + ' Z';
+  };
+
+  const isActive = (kind, key) => {
+    if (!hover) return true;
+    if (hover.type === 'link') {
+      return (kind === 'link' && hover.tool === key.tool && hover.cat === key.cat)
+        || (kind === 'leftNode' && key === hover.tool)
+        || (kind === 'rightNode' && key === hover.cat);
+    }
+    if (hover.type === 'leftNode') {
+      return (kind === 'leftNode' && key === hover.key)
+        || (kind === 'link' && key.tool === hover.key);
+    }
+    if (hover.type === 'rightNode') {
+      return (kind === 'rightNode' && key === hover.key)
+        || (kind === 'link' && key.cat === hover.key);
+    }
+    return true;
+  };
+
+  const resolveVar = (v) => {
+    if (!v || !v.startsWith('var(')) return v;
+    const name = v.match(/var\((--[^)]+)\)/);
+    if (!name) return v;
+    return getComputedStyle(document.documentElement).getPropertyValue(name[1]).trim() || v;
+  };
+
+  return (
+    <svg viewBox={'0 0 ' + W + ' ' + H} className={"sankey-svg sankey" + (hover ? " is-hovering" : "")} style={{ height: 460 }}>
+      <g>
+        {links.map((L, i) => {
+          const c = resolveVar(categoryColors[L.cat]);
+          const active = isActive('link', L);
+          return (
+            <path
+              key={i}
+              d={linkPath(L)}
+              className={"sankey-link" + (active ? " is-active" : "")}
+              fill={c}
+              fillOpacity={hover && active ? 0.55 : 0.28}
+              onMouseEnter={() => setHover({ type: 'link', tool: L.tool, cat: L.cat })}
+              onMouseLeave={() => setHover(null)}
+            >
+              <title>{toolMeta[L.tool].label + ' → ' + categoryLabels[L.cat] + ': ' + fmt.n(L.value) + ' tokens'}</title>
+            </path>
+          );
+        })}
+      </g>
+      <g>
+        {leftNodes.map(n => {
+          const meta = toolMeta[n.key];
+          const active = isActive('leftNode', n.key);
+          return (
+            <g key={n.key} className="sankey-node"
+               onMouseEnter={() => setHover({ type: 'leftNode', key: n.key })}
+               onMouseLeave={() => setHover(null)}>
+              <rect x={leftX} y={n.y} width={leftW} height={n.h}
+                fill={resolveVar(meta.color)} className={active ? "is-active" : ""} rx="2"/>
+              <text x={leftX - 10} y={n.y + n.h / 2} textAnchor="end" dominantBaseline="middle">{meta.label}</text>
+              <text className="sub" x={leftX - 10} y={n.y + n.h / 2 + 14} textAnchor="end" dominantBaseline="middle">
+                {fmt.n(n.total)} · {n.count}×
+              </text>
+            </g>
+          );
+        })}
+      </g>
+      <g>
+        {rightNodes.map(n => {
+          const active = isActive('rightNode', n.key);
+          return (
+            <g key={n.key} className="sankey-node"
+               onMouseEnter={() => setHover({ type: 'rightNode', key: n.key })}
+               onMouseLeave={() => setHover(null)}>
+              <rect x={rightX} y={n.y} width={rightW} height={n.h}
+                fill={resolveVar(categoryColors[n.key])} className={active ? "is-active" : ""} rx="2"/>
+              <text x={rightX + rightW + 10} y={n.y + n.h / 2} dominantBaseline="middle">{categoryLabels[n.key]}</text>
+              <text className="sub" x={rightX + rightW + 10} y={n.y + n.h / 2 + 14} dominantBaseline="middle">
+                {fmt.n(n.total)} · {fmt.pct(n.total / totalAll)}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+
+// ─── Step list + Detail ───
+function StepList({ data, selectedId, onSelect }) {
+  return (
+    <div className="steplist">
+      {data.steps.map(s => {
+        const meta = toolMeta[s.tool] || toolMeta.inference;
+        const isSel = s.id === selectedId;
+        return (
+          <div key={s.id} className={"step" + (isSel ? " is-selected" : "")} onClick={() => onSelect(s.id)}>
+            <div className="step-idx">#{String(s.id).padStart(2, '0')}</div>
+            <div className="kind-icon" style={{ background: meta.color }}>{meta.glyph}</div>
+            <div className="step-main">
+              <div className="step-label">{s.label}</div>
+              <div className="step-meta">{meta.label}{s.dur > 0 && <> · {fmt.ms(s.dur)}</>}</div>
+            </div>
+            <div className="step-tokens">
+              {s.input > 0 && <span className="tok-in">{fmt.n(s.input)}</span>}
+              {s.output > 0 && <span className="tok-out">{fmt.n(s.output)}</span>}
+            </div>
+            <div className="step-cum">Σ {fmt.n(s.cumTotal)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Detail({ step, data }) {
+  if (!step) {
+    return (
+      <div className="detail">
+        <div className="detail-head">
+          <div className="d-label">Step details</div>
+          <div className="d-meta">Click any step to inspect</div>
+        </div>
+        <div className="empty">Select a step from the list or the chart.</div>
+      </div>
+    );
+  }
+  const meta = toolMeta[step.tool] || toolMeta.inference;
+  const total = step.input + step.output;
+  const segs = [
+    { k: 'fresh',      v: step.freshInput  || 0 },
+    { k: 'cacheRead',  v: step.cacheRead   || 0 },
+    { k: 'cacheWrite', v: step.cacheWrite  || 0 },
+    { k: 'output',     v: step.output      || 0 },
+  ].filter(x => x.v > 0);
+  const grand = data.summary.totalInput + data.summary.totalOutput;
+  const pctOfTotal = (total / Math.max(1, grand)) * 100;
+  return (
+    <div className="detail">
+      <div className="detail-head">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="kind-icon" style={{ background: meta.color }}>{meta.glyph}</span>
+          <div>
+            <div className="d-label">{step.label}</div>
+            <div className="d-meta">Step #{String(step.id).padStart(2, '0')} · {meta.label}{step.dur > 0 && <> · {fmt.ms(step.dur)}</>}</div>
+          </div>
+        </div>
+      </div>
+      <div className="detail-body">
+        <div className="section-title">Token flow</div>
+        <div className="tok-grid">
+          <div className="tok-cell">
+            <div className="lbl">Input (this step)</div>
+            <div className="val">{fmt.n(step.input)}<span className="unit">tok</span></div>
+          </div>
+          <div className="tok-cell">
+            <div className="lbl">Output (this step)</div>
+            <div className="val">{fmt.n(step.output)}<span className="unit">tok</span></div>
+          </div>
+          <div className="tok-cell">
+            <div className="lbl">Context size</div>
+            <div className="val">{fmt.n(step.contextSize)}<span className="unit">tok</span></div>
+          </div>
+          <div className="tok-cell">
+            <div className="lbl">% of total run</div>
+            <div className="val">{pctOfTotal.toFixed(2)}<span className="unit">%</span></div>
+          </div>
+        </div>
+        {total > 0 && (
+          <>
+            <div className="section-title">Composition</div>
+            <div className="stacked-bar">
+              {segs.map(seg => (
+                <span key={seg.k} style={{ width: (seg.v / total * 100) + '%', background: categoryColors[seg.k] }}/>
+              ))}
+            </div>
+            <dl className="kv">
+              {segs.map(seg => (
+                <React.Fragment key={seg.k}>
+                  <dt>
+                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: categoryColors[seg.k], marginRight: 6 }}/>
+                    {categoryLabels[seg.k]}
+                  </dt>
+                  <dd>{fmt.n(seg.v)} <span style={{ color: 'var(--fg-subtle)' }}>({(seg.v / total * 100).toFixed(1)}%)</span></dd>
+                </React.Fragment>
+              ))}
+            </dl>
+          </>
+        )}
+        <div className="section-title">Cumulative after this step</div>
+        <dl className="kv">
+          <dt>Input Σ</dt>       <dd>{fmt.n(step.cumInput)}</dd>
+          <dt>Output Σ</dt>      <dd>{fmt.n(step.cumOutput)}</dd>
+          <dt>Grand total Σ</dt> <dd>{fmt.n(step.cumTotal)}</dd>
+        </dl>
+        <div className="section-title">Parameters & result</div>
+        <div className="code" dangerouslySetInnerHTML={{ __html: highlightJSON(step.payload) }}/>
+      </div>
+    </div>
+  );
+}
+
+// ─── App ───
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "palette": "mono",
+  "chart": "waterfall"
+}/*EDITMODE-END*/;
+
+function App() {
+  const data = window.TRANSCRIPT;
+  const [theme, setTheme] = React.useState(() => localStorage.getItem('tu-theme') || 'light');
+  const [palette, setPalette] = React.useState(() => localStorage.getItem('tu-palette') || TWEAK_DEFAULTS.palette);
+  const [chart, setChart] = React.useState(() => localStorage.getItem('tu-chart') || TWEAK_DEFAULTS.chart);
+  const [selectedId, setSelectedId] = React.useState(null);
+  const [tweaksOn, setTweaksOn] = React.useState(false);
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+
+  React.useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('tu-theme', theme); }, [theme]);
+  React.useEffect(() => { document.documentElement.dataset.palette = palette; localStorage.setItem('tu-palette', palette); }, [palette]);
+  React.useEffect(() => { localStorage.setItem('tu-chart', chart); }, [chart]);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === '__activate_edit_mode') { setTweaksOn(true); setTweaksOpen(true); }
+      if (e.data.type === '__deactivate_edit_mode') { setTweaksOn(false); setTweaksOpen(false); }
+    };
+    window.addEventListener('message', handler);
+    try { window.parent.postMessage({ type: '__edit_mode_available' }, '*'); } catch (e) {}
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const setTweakKey = (k, v) => {
+    try { window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*'); } catch (e) {}
+  };
+
+  const selectedStep = data.steps.find(s => s.id === selectedId);
+
+  return (
+    <>
+      <div className="topbar">
+        <div className="brand">
+          <div className="dot"/>
+          <span>Token Usage</span>
+          <span className="sep">/</span>
+          <span className="path">auth-refactor · 2 turns · {data.steps.length} steps</span>
+        </div>
+        <div className="topbar-right">
+          <button className="btn" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            {theme === 'light' ? <IconMoon/> : <IconSun/>}
+            {theme === 'light' ? 'Dark' : 'Light'}
+          </button>
+          {tweaksOn && (
+            <button className="btn" aria-pressed={tweaksOpen} onClick={() => setTweaksOpen(!tweaksOpen)}>
+              <IconSliders/> Tweaks
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="page">
+        <section>
+          <div className="section-head">
+            <h2>Overview</h2>
+            <div className="hint">Synthetic transcript · auth-refactor session</div>
+          </div>
+          <Summary data={data}/>
+        </section>
+
+        <section>
+          <div className="panel">
+            <div className="panel-head">
+              <div className="panel-title">
+                Token flow
+                <span className="sub">
+                  {chart === 'waterfall' ? 'Cumulative context growth per step' : 'Aggregate flow from actions to token categories'}
+                </span>
+              </div>
+              <div className="tabs" role="tablist">
+                <button role="tab" aria-selected={chart === 'waterfall'} onClick={() => setChart('waterfall')}>Waterfall</button>
+                <button role="tab" aria-selected={chart === 'sankey'} onClick={() => setChart('sankey')}>Sankey</button>
+              </div>
+            </div>
+            <div className="legend">
+              {['fresh','cacheRead','cacheWrite','output'].map(k => (
+                <span className="legend-item" key={k}>
+                  <span className="swatch" style={{ background: categoryColors[k] }}/>
+                  {categoryLabels[k]}
+                </span>
+              ))}
+            </div>
+            <div className="chart-body">
+              {chart === 'waterfall'
+                ? <Waterfall data={data} selectedId={selectedId} onSelect={setSelectedId}/>
+                : <Sankey data={data}/>}
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Steps</h2>
+            <div className="hint">Click any step to see parameters and token breakdown</div>
+          </div>
+          <div className="split">
+            <StepList data={data} selectedId={selectedId} onSelect={setSelectedId}/>
+            <Detail step={selectedStep} data={data}/>
+          </div>
+        </section>
+      </div>
+
+      <div className={"tweaks" + (tweaksOn && tweaksOpen ? " is-open" : "")}>
+        <h3>Tweaks</h3>
+        <div className="tweak-row">
+          <label>Chart type</label>
+          <div className="chips">
+            {['waterfall','sankey'].map(c => (
+              <button key={c} className="chip" aria-pressed={chart === c}
+                onClick={() => { setChart(c); setTweakKey('chart', c); }}>{c}</button>
+            ))}
+          </div>
+        </div>
+        <div className="tweak-row">
+          <label>Color palette</label>
+          <div className="chips">
+            {['cool','warm','mono'].map(p => (
+              <button key={p} className="chip" aria-pressed={palette === p}
+                onClick={() => { setPalette(p); setTweakKey('palette', p); }}>{p}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
