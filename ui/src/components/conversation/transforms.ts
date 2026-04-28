@@ -204,6 +204,8 @@ export interface ConversationStep {
   timeMs: number;
   durationMs: number;
   tokens: StepTokens;
+  outputBytes: number;
+  outputTokens: number;
   span?: SpanNode;
   text?: string;
 }
@@ -302,10 +304,28 @@ interface RawStep {
   timeMs: number;
   durationMs: number;
   tokens: StepTokens;
+  outputBytes: number;
+  outputTokens: number;
   span?: SpanNode;
   text?: string;
   label: string;
   subtitle: string;
+}
+
+const TEXT_ENCODER = new TextEncoder();
+
+function utf8ByteLength(s: string): number {
+  return s ? TEXT_ENCODER.encode(s).byteLength : 0;
+}
+
+function toolOutputBytes(span: SpanNode): number {
+  const v = span.attributes['agent_trace.tool.output_bytes'];
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function toolOutputTokens(span: SpanNode): number {
+  const v = span.attributes['agent_trace.tool.output_tokens'];
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
 function stepsForTurn(turn: Turn): RawStep[] {
@@ -322,6 +342,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
       timeMs: turn.startMs,
       durationMs: 0,
       tokens: ZERO_TOKENS,
+      outputBytes: utf8ByteLength(promptText),
+      outputTokens: 0,
       text: promptText,
       label: truncate(promptText.replace(/\s+/g, ' ').trim(), 80) || 'User prompt',
       subtitle: 'User prompt',
@@ -334,6 +356,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
         timeMs: span.startMs,
         durationMs: span.durationMs,
         tokens: inferenceTokens(span),
+        outputBytes: 0,
+        outputTokens: 0,
         span,
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
@@ -346,6 +370,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
         timeMs: span.startMs,
         durationMs: span.durationMs,
         tokens: ZERO_TOKENS,
+        outputBytes: toolOutputBytes(span),
+        outputTokens: toolOutputTokens(span),
         span,
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
@@ -361,6 +387,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
       timeMs: e.timeMs ?? turn.startMs,
       durationMs: 0,
       tokens: ZERO_TOKENS,
+      outputBytes: 0,
+      outputTokens: 0,
       text,
       label: truncate(text.replace(/\s+/g, ' ').trim(), 80),
       subtitle: 'Assistant message',
@@ -379,6 +407,8 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         timeMs: span.startMs,
         durationMs: span.durationMs,
         tokens: inferenceTokens(span),
+        outputBytes: 0,
+        outputTokens: 0,
         span,
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
@@ -391,6 +421,8 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         timeMs: span.startMs,
         durationMs: span.durationMs,
         tokens: ZERO_TOKENS,
+        outputBytes: toolOutputBytes(span),
+        outputTokens: toolOutputTokens(span),
         span,
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
@@ -421,6 +453,8 @@ export function buildConversationSteps(
       timeMs: raw.timeMs,
       durationMs: raw.durationMs,
       tokens: raw.tokens,
+      outputBytes: raw.outputBytes,
+      outputTokens: raw.outputTokens,
       span: raw.span,
       text: raw.text,
     });

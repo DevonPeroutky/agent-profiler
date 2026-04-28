@@ -60,6 +60,13 @@ const fmt = {
   },
 };
 
+function fmtBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 const KIND_GLYPH: Record<ConversationStepKind, string> = {
   'user-prompt': 'U',
   inference: '∞',
@@ -369,9 +376,19 @@ function ContextTooltip({ active, payload }: TooltipProps) {
                   >
                     {KIND_GLYPH[s.kind]}
                   </span>
-                  <span className="min-w-0 truncate text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-foreground">
                     {s.label}
                   </span>
+                  {s.outputTokens > 0 && (
+                    <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+                      {fmt.n(s.outputTokens)} tok
+                    </span>
+                  )}
+                  {s.outputTokens === 0 && s.outputBytes > 0 && (
+                    <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+                      {fmtBytes(s.outputBytes)}
+                    </span>
+                  )}
                 </li>
               ))}
               {overflow > 0 && (
