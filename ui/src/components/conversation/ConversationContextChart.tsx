@@ -3,13 +3,14 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ReferenceLine,
   XAxis,
   YAxis,
 } from 'recharts';
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   type ChartConfig,
 } from '@/components/ui/chart';
@@ -34,6 +35,9 @@ interface ChartDatum {
   before: number;
   after: number;
   delta: number;
+  fresh: number;
+  cacheRead: number;
+  cacheCreation: number;
   composition: { fresh: number; cacheRead: number; cacheCreation: number };
   intervening: ConversationStep[];
   isFirstOfTurn: boolean;
@@ -108,6 +112,9 @@ function buildData(conversation: ConversationSummary): ChartDatum[] {
     const after =
       step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
     const before = prevAbsolute;
+    const fresh = step.tokens.input;
+    const cacheRead = step.tokens.cacheRead;
+    const cacheCreation = step.tokens.cacheCreation;
     out.push({
       idx: out.length + 1,
       turnNumber: step.turnNumber,
@@ -121,11 +128,10 @@ function buildData(conversation: ConversationSummary): ChartDatum[] {
       before,
       after,
       delta: after - before,
-      composition: {
-        fresh: step.tokens.input,
-        cacheRead: step.tokens.cacheRead,
-        cacheCreation: step.tokens.cacheCreation,
-      },
+      fresh,
+      cacheRead,
+      cacheCreation,
+      composition: { fresh, cacheRead, cacheCreation },
       intervening: pending,
       isFirstOfTurn,
       isFirstAfterUnattached: crossingUnattachedBoundary,
@@ -139,7 +145,9 @@ function buildData(conversation: ConversationSummary): ChartDatum[] {
 }
 
 const CHART_CONFIG = {
-  delta: { label: 'Δ context (tok)' },
+  cacheRead: { label: 'Cache read', color: 'var(--tok-cache-read)' },
+  cacheCreation: { label: 'Cache creation', color: 'var(--tok-cache-write)' },
+  fresh: { label: 'Fresh input', color: 'var(--tok-fresh)' },
 } satisfies ChartConfig;
 
 export function ConversationContextChart({ conversation }: Props) {
@@ -209,18 +217,23 @@ export function ConversationContextChart({ conversation }: Props) {
             cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
             content={<ContextTooltip />}
           />
-          <Bar dataKey="delta" radius={[2, 2, 0, 0]}>
-            {data.map((d) => (
-              <Cell
-                key={d.idx}
-                fill={
-                  d.delta >= 0
-                    ? 'hsl(var(--chart-1))'
-                    : 'hsl(var(--destructive))'
-                }
-              />
-            ))}
-          </Bar>
+          <Bar
+            dataKey="cacheRead"
+            stackId="ctx"
+            fill="var(--color-cacheRead)"
+          />
+          <Bar
+            dataKey="cacheCreation"
+            stackId="ctx"
+            fill="var(--color-cacheCreation)"
+          />
+          <Bar
+            dataKey="fresh"
+            stackId="ctx"
+            fill="var(--color-fresh)"
+            radius={[2, 2, 0, 0]}
+          />
+          <ChartLegend content={<ChartLegendContent />} />
         </BarChart>
       </ChartContainer>
     </SectionCard>
