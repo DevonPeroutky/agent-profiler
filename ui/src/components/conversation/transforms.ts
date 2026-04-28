@@ -243,6 +243,10 @@ function toolStepLabel(span: SpanNode): string {
     String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
   const subagentType = span.attributes['agent_trace.subagent.type'];
   if (typeof subagentType === 'string' && subagentType) {
+    const description = span.attributes['agent_trace.subagent.description'];
+    if (typeof description === 'string' && description.trim()) {
+      return truncate(`${subagentType}: ${description.trim()}`, 60);
+    }
     return `${name}: ${subagentType}`;
   }
   const slash = span.attributes['agent_trace.tool.slash_command'];
