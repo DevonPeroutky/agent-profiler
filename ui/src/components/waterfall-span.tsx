@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn, formatDuration } from '@/lib/utils';
 import {
   Tooltip,
@@ -280,11 +280,12 @@ export function SpanRow({
             }}
             className="text-muted-foreground hover:text-foreground"
           >
-            {isCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
+            <ChevronDown
+              className={cn(
+                'h-3 w-3 transition-transform duration-200 ease-out',
+                isCollapsed && '-rotate-90',
+              )}
+            />
           </button>
         ) : (
           <span className="inline-block w-3" />

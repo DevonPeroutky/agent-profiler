@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import type { SpanNode } from '@/types';
+import { cn } from '@/lib/utils';
 import { MessageBlock } from './MessageBlock';
 import { ToolCallsBlock } from './ToolCallsBlock';
 import { buildTurnTimeline, type TurnTimelineEntry } from './transforms';
@@ -43,11 +44,12 @@ function ReasoningBlock({ text }: { text: string }) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
-        {open ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 transition-transform duration-200 ease-out',
+            !open && '-rotate-90',
+          )}
+        />
         <span className="italic">thinking</span>
         {!open && preview && (
           <span className="truncate opacity-70">· {preview}</span>

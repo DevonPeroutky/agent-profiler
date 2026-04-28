@@ -381,7 +381,7 @@ function Stat({
   return (
     <div className="rounded-md border border-border/60 bg-muted/30 p-2">
       <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className={mono ? 'mt-0.5 font-mono text-[11px]' : 'mt-0.5 text-xs'}>
+      <div className={mono ? 'mt-0.5 font-mono text-[11px]' : 'mt-0.5 text-xs tabular-nums'}>
         {value}
       </div>
     </div>

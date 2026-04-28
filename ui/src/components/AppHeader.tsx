@@ -71,7 +71,13 @@ export function AppHeader({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={onRefresh} disabled={loading}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onRefresh}
+          disabled={loading}
+          className="pl-2 pr-3"
+        >
           <RefreshCw
             className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
           />

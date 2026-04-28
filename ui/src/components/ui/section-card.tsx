@@ -19,7 +19,7 @@ export function SectionCard({
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex items-baseline justify-between gap-3 border-b border-border px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        <h2 className="text-balance text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           {title}
         </h2>
         {meta != null ? (

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, User } from 'lucide-react';
+import { ChevronDown, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -72,7 +72,7 @@ const claudeAvatarIcon = (
   <img
     src="/images/claude-logo.png"
     alt=""
-    className="h-3.5 w-3.5 object-contain"
+    className="h-3.5 w-3.5 rounded-sm object-contain ring-1 ring-black/10 dark:ring-white/10"
     aria-hidden="true"
   />
 );
@@ -176,11 +176,12 @@ export function ChatMessage({
       </span>
       <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
         {isOpen ? 'hide trace' : 'view trace'}
-        {isOpen ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 transition-transform duration-200 ease-out',
+            !isOpen && '-rotate-90',
+          )}
+        />
       </span>
     </>
   );
@@ -188,7 +189,7 @@ export function ChatMessage({
   const userBody = body ? (
     <p
       className={cn(
-        'whitespace-pre-wrap',
+        'whitespace-pre-wrap text-pretty',
         bodyMuted ? 'italic text-muted-foreground' : 'text-foreground',
       )}
     >
