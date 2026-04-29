@@ -74,6 +74,19 @@ function messageTextOf(event: SpanNode['events'][number]): string {
   return String(event.attributes?.[MESSAGE_CONTENT_ATTR] ?? '').trim();
 }
 
+// Assistant-content events live on inference spans (one per requestId) under
+// the turn root. Earlier transcripts emitted them on the turn root directly;
+// we walk both so any consumer that previously read `turn.root.events` sees
+// the same set.
+function collectAssistantContentEvents(turn: SpanNode): SpanNode['events'] {
+  const out: SpanNode['events'] = [...turn.events];
+  for (const child of turn.children) {
+    if (child.name !== 'inference') continue;
+    for (const ev of child.events) out.push(ev);
+  }
+  return out;
+}
+
 function latestMessageWithStop(
   events: SpanNode['events'],
   stop: string,
@@ -120,7 +133,7 @@ export function hasVisibleActivity(entry: TurnEntry): boolean {
 export function deriveTurnOutcome(turn: Turn): TurnOutcome {
   if (turn.isMeta) return { kind: 'running' };
   if (turn.isRunning) return { kind: 'running' };
-  const events = turn.root.events;
+  const events = collectAssistantContentEvents(turn.root);
   const completed = latestMessageWithStop(events, 'end_turn');
   if (completed) return { kind: 'completed', text: completed.text };
   const truncated = latestMessageWithStop(events, 'max_tokens');
@@ -178,7 +191,8 @@ export type ConversationStepKind =
   | 'user-prompt'
   | 'inference'
   | 'tool'
-  | 'assistant-message';
+  | 'assistant-message'
+  | 'reasoning';
 
 export interface StepTokens {
   input: number;
@@ -293,6 +307,10 @@ function walkInferenceAndTool(
 ): void {
   if (span.name === 'inference') {
     emit('inference', span, depth);
+    // Tool spans now nest under the inference whose tool_use block emitted
+    // them. Descend so they still appear in the Steps list, indented one
+    // level deeper than the parent inference.
+    for (const child of span.children) walkInferenceAndTool(child, depth + 1, emit);
     return;
   }
   if (!isStructuralSpan(span)) {
@@ -372,6 +390,44 @@ function stepsForTurn(turn: Turn): RawStep[] {
         subtitle: inferenceSubtitle(span),
         depth,
       });
+      // Assistant text + reasoning live as events on the inference span.
+      // Emit them as siblings of the inference's tool children (depth+1)
+      // so the rail renderer treats them as children of *this* inference.
+      // Hard-coding depth 0 made depth-1 tool rows visually nest under the
+      // message instead of under the inference that emitted them.
+      for (const e of span.events) {
+        if (e.name === 'gen_ai.assistant.message') {
+          const text = String(e.attributes?.[MESSAGE_CONTENT_ATTR] ?? '').trim();
+          if (!text) continue;
+          out.push({
+            kind: 'assistant-message',
+            timeMs: e.timeMs ?? span.startMs,
+            durationMs: 0,
+            tokens: ZERO_TOKENS,
+            outputBytes: 0,
+            outputTokens: 0,
+            text,
+            label: text.replace(/\s+/g, ' ').trim(),
+            subtitle: 'Assistant message',
+            depth: depth + 1,
+          });
+        } else if (e.name === 'gen_ai.assistant.reasoning') {
+          const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '').trim();
+          if (!text) continue;
+          out.push({
+            kind: 'reasoning',
+            timeMs: e.timeMs ?? span.startMs,
+            durationMs: 0,
+            tokens: ZERO_TOKENS,
+            outputBytes: 0,
+            outputTokens: 0,
+            text,
+            label: text.replace(/\s+/g, ' ').trim(),
+            subtitle: 'Reasoning',
+            depth: depth + 1,
+          });
+        }
+      }
     } else {
       const name =
         String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
@@ -389,6 +445,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
       });
     }
   });
+  // Fallback for the rare legacy case where assistant content sits on the
+  // turn root (no owning inference). Depth 0 is correct here.
   for (const e of turn.root.events) {
     if (e.name !== 'gen_ai.assistant.message') continue;
     const text = String(e.attributes?.[MESSAGE_CONTENT_ATTR] ?? '').trim();
@@ -406,7 +464,6 @@ function stepsForTurn(turn: Turn): RawStep[] {
       depth: 0,
     });
   }
-  out.sort((a, b) => a.timeMs - b.timeMs);
   return out;
 }
 
@@ -443,7 +500,6 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
       });
     }
   });
-  out.sort((a, b) => a.timeMs - b.timeMs);
   return out;
 }
 
@@ -500,15 +556,24 @@ export type TurnTimelineEntry =
  * faithful chronological record.
  */
 export function buildTurnTimeline(turn: SpanNode): TurnTimelineEntry[] {
+  // Tool spans now nest under their emitting inference. Walk turn children
+  // and flatten any inference's tool children up to the timeline level so
+  // the chat shape preserves the previous "tool calls inline with messages"
+  // layout. Slash turns and orphan reparenting fallbacks still surface
+  // tool spans as direct turn children, so we keep them too.
+  const toolEntries: TurnTimelineEntry[] = [];
+  for (const child of turn.children) {
+    if (child.name === 'inference') {
+      for (const grand of child.children) {
+        toolEntries.push({ kind: 'tool', timeMs: grand.startMs, span: grand });
+      }
+    } else {
+      toolEntries.push({ kind: 'tool', timeMs: child.startMs, span: child });
+    }
+  }
   const entries: TurnTimelineEntry[] = [
-    ...turn.children.map(
-      (span): TurnTimelineEntry => ({
-        kind: 'tool',
-        timeMs: span.startMs,
-        span,
-      }),
-    ),
-    ...turn.events.flatMap((e): TurnTimelineEntry[] => {
+    ...toolEntries,
+    ...collectAssistantContentEvents(turn).flatMap((e): TurnTimelineEntry[] => {
       if (e.name === 'gen_ai.assistant.message') {
         const text = messageTextOf(e);
         return text

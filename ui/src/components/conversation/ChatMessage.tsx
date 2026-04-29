@@ -44,7 +44,7 @@ function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
       {avatarBare ? (
         <span
           ref={avatarRef}
-          className="relative z-20 flex h-6 w-6 shrink-0 items-center justify-center"
+          className="relative z-20 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-background"
         >
           {avatar}
         </span>

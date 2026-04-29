@@ -40,6 +40,7 @@ The canonical predicate for "an assistant record that counts" is `isCanonicalAss
 - Re-introducing `gen_ai.assistant.message` / `gen_ai.assistant.reasoning` events on the turn root for content that belongs to a specific `requestId` — those events live on the inference span.
 - Double-counting `usage` tokens by summing across every assistant row (use `requestId` dedupe).
 - Labeling inference spans with `tool_use` (`stop_reason: tool_use` is legitimate but the *span name* must remain `inference`).
+- Using timestamps anywhere in the transformer beyond computing `durationMs` from a structurally-paired `(tool_use, tool_result)` or stable-sorting events on a single span for display. See §2.
 
 ## Design principles
 
@@ -53,7 +54,18 @@ The canonical predicate for "an assistant record that counts" is `isCanonicalAss
 
 ### 2. Deterministic subagent pairing
 
-**Ingestion rule — absolute, no exceptions.** **Never make ingestion, pairing, routing, grouping, or identity decisions based on transcript timestamps.** Timestamps describe flush order, not causal order; in slash-command sessions they're written at end-of-command with identical-millisecond values, while the subagents they dispatched ran minutes earlier. Containment checks, nearest-neighbor, and precedence ordering by timestamp are all traps — they *look* structural and silently produce wrong answers. Treat timestamps as display-only. Pair via structural links (`parentUuid` chain, `toolUseResult.agentId`, `promptId`, `sessionId`, on-disk filename layout) — if no structural link exists, admit defeat and emit the subagent as `kind: 'unattached'`.
+**Ingestion rule — absolute, no exceptions. Timestamps are display-only.**
+
+> **Never** use a transcript timestamp — `timestamp`, `ts`, derived `startMs`/`endMs`, ordering, ranges, deltas, or *any* field whose value comes from a wall-clock — to make **any** ingestion, parsing, pairing, routing, grouping, identity, parent/child, sibling-precedence, attachment, dedupe, or unattached-vs-attached decision. Not "usually," not "as a tiebreaker," not "as a heuristic when the structural link is missing." Never. If you find yourself about to write `if (timestampA < timestampB)`, `findNearest(byTime)`, `withinWindow(ms)`, `sort(byTimestamp).then(pair…)`, or anything equivalent inside the transformer, stop — the answer is wrong even when it looks right.
+
+Timestamps describe **flush order, not causal order**. In slash-command sessions they're written at end-of-command with identical-millisecond values, while the subagents they dispatched ran minutes earlier. Identical timestamps across causally-distant records are normal, not a bug. Containment checks, nearest-neighbor, time-windowing, and precedence ordering by timestamp are all traps — they *look* structural and silently produce wrong answers that pass tests on the fixtures you happened to write but break on real transcripts.
+
+**The only legitimate uses of a timestamp:**
+- Computing `durationMs` for an already-paired `(tool_use, tool_result)` whose pairing was established structurally via `tool_use_id`.
+- Sorting events on a single span for *display* (chronological reading order in the UI), after the span itself was assembled structurally.
+- Rendering a relative time string in the UI.
+
+Anything else is forbidden. Pair via structural links only: `parentUuid` chain, `toolUseResult.agentId`, `promptId`, `sessionId`, `tool_use_id`, on-disk filename layout. If no structural link exists, admit defeat and emit the subagent as `kind: 'unattached'` — that variant exists precisely so you don't have to guess from timestamps.
 
 - Claude Code writes subagent conversations to `<sessionId>/subagents/agent-<agentId>.jsonl`. Each one has a tiny `agent-<agentId>.meta.json` sidecar with `{agentType}`.
 - Three spawn pathways exist and the transformer handles them:

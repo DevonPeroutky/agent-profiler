@@ -30,17 +30,23 @@ export function selectConversationPreview(
 }
 
 // First textual assistant reply across non-meta turns. Intentionally ignores
-// `gen_ai.assistant.reasoning` (thinking blocks aren't a reply) and does not
-// descend into child spans — if the only assistant text lives inside a
-// `subagent:<type>` subtree, return null rather than mislabel subagent chatter
-// as the conversation's first reply.
+// `gen_ai.assistant.reasoning` (thinking blocks aren't a reply). Inference
+// spans live as direct children of the turn root (one per requestId) and
+// carry their content as events; we walk those but stop at `subagent:<type>`
+// boundaries so subagent chatter doesn't get mislabeled as the
+// conversation's first reply.
 export function getFirstAssistantPreview(
   conversation: ConversationSummary,
 ): string | null {
   for (const turn of conversation.turns) {
     if (turn.isMeta) continue;
-    const events = turn.root.events ?? [];
-    const msg = events.find((e) => e.name === 'gen_ai.assistant.message');
+    const candidates = [
+      ...(turn.root.events ?? []),
+      ...turn.root.children
+        .filter((c) => c.name === 'inference')
+        .flatMap((c) => c.events ?? []),
+    ];
+    const msg = candidates.find((e) => e.name === 'gen_ai.assistant.message');
     if (!msg) continue;
     const text = String(msg.attributes?.['gen_ai.message.content'] ?? '').trim();
     if (text) return firstSentenceOf(text);

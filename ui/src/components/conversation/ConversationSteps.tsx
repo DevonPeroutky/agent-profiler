@@ -35,6 +35,11 @@ const KIND_META: Record<ConversationStepKind, KindMeta> = {
     color: 'var(--tok-output)',
     glyph: 'A',
   },
+  reasoning: {
+    label: 'Reasoning',
+    color: 'var(--tok-output)',
+    glyph: '?',
+  },
 };
 
 const TOOL_KIND_META: Record<string, Partial<KindMeta>> = {
@@ -486,7 +491,11 @@ function StepDetail({ step, steps }: StepDetailProps) {
 }
 
 function StepPayload({ step }: { step: CumStep }) {
-  if (step.kind === 'user-prompt' || step.kind === 'assistant-message') {
+  if (
+    step.kind === 'user-prompt' ||
+    step.kind === 'assistant-message' ||
+    step.kind === 'reasoning'
+  ) {
     return <PreBlock>{step.text ?? ''}</PreBlock>;
   }
   if (step.kind === 'inference') {

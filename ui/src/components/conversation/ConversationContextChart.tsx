@@ -72,6 +72,7 @@ const KIND_GLYPH: Record<ConversationStepKind, string> = {
   inference: '∞',
   tool: '$',
   'assistant-message': 'A',
+  reasoning: '?',
 };
 
 const KIND_COLOR: Record<ConversationStepKind, string> = {
@@ -79,6 +80,7 @@ const KIND_COLOR: Record<ConversationStepKind, string> = {
   inference: 'var(--tool-inference)',
   tool: 'var(--tool-bash)',
   'assistant-message': 'var(--tok-output)',
+  reasoning: 'var(--tok-output)',
 };
 
 const KIND_LABEL: Record<ConversationStepKind, string> = {
@@ -86,6 +88,7 @@ const KIND_LABEL: Record<ConversationStepKind, string> = {
   inference: 'inference',
   tool: 'tool',
   'assistant-message': 'assistant message',
+  reasoning: 'reasoning',
 };
 
 function pluralize(n: number, singular: string): string {
