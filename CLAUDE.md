@@ -2,6 +2,10 @@
 
 A local trace viewer for Claude Code conversations. Reads session transcripts directly from disk and renders them as a span-tree waterfall. A React + Vite app with a small middleware plugin — no separate server process, no hooks, no OTEL SDK.
 
+## Communication style
+
+Speak simply and explain things clearly. Avoid jargon — when a domain term is genuinely necessary (e.g. `requestId`, `tool_use`), define it the first time it appears in a response. Prefer plain-English descriptions over acronyms and library-internal naming. If a concept can be explained with a short sentence instead of a technical label, use the sentence.
+
 ## North Star
 
 **Claude Code's own per-session JSONL transcripts (`~/.claude/projects/<project-slug>/<sessionId>.jsonl`) are the source of truth.** The viewer is a pure `(transcript → SpanNode tree → JSON)` pipeline. If the UI and the raw transcript disagree about what happened, the transcript is right.
@@ -10,35 +14,32 @@ A local trace viewer for Claude Code conversations. Reads session transcripts di
 
 These two are not the same thing. Confusing them is the largest recurring source of bugs in this transformer.
 
-**Inference.** A single request to the remote Anthropic API. Something that costs money, takes wall-clock time, and ends with the model returning a response. Has a `requestId` — one per API round-trip. Every content block the model returned (thinking, text, tool_use) belongs to that inference and shares its `requestId`. Deduplicate: one span per distinct `requestId`.
+**Inference.** A single request to the remote Anthropic API. Something that costs money, takes wall-clock time, and ends with the model returning a response. Has a `requestId` — one per API round-trip. Whatever content the model returned (thinking, text, tool_use, or any combination) belongs to that one inference and shares its `requestId`. **The state layer mirrors API round-trips 1:1: one `inference` span per distinct `requestId` within a slice**, regardless of what content kinds the response contained. A response with `[thinking, text, tool_use]` is one inference, not three. *How* that inference is rendered (waterfall bar, chat bubble, both, neither) is a UI decision driven by `has_*` flags and the events list — the state layer is content-kind-agnostic.
 
-**Tool call (`tool_use` content block).** Claude Code executing a local command — Bash, Read, Edit, Glob, Grep, etc. — on the user's machine. Produced *inside* an assistant response as a content block. The block carries a `requestId` because it was emitted by an inference, but the block itself is **not** an inference. Executing it is local, not remote. A single inference can emit zero, one, or many tool_use blocks; each one becomes its own tool span, separate from the inference span that generated it.
+The canonical predicate for "an assistant record that counts" is `isCanonicalAssistantRecord` (`type === 'assistant'`, `!isApiErrorMessage`, has `message.usage`, has non-empty `requestId`). It gates both the inference emitter *and* token dedupe (`dedupeUsagesByRequestId` in `lib/traces/traces.js`) — `inferences.length` equals `agent_trace.turn.request_count` by construction. Drift here recreates the count discrepancy on any turn with API errors.
+
+**Tool call (`tool_use` content block).** Local execution on the user's machine — Bash, Read, Edit, Glob, Grep, etc. **Tool calls are not inferences.** They are produced *inside* an assistant response as a content block, but executing them is local — the agent harness runs the command, captures the result, and feeds it back into the *next* inference as added context. A `tool_use` block carries a `requestId` because the inference that emitted it had one; that does not make the local execution itself an API round-trip. A single inference can emit zero, one, or many `tool_use` blocks; each one becomes its own tool span (duration `tool_result.ts − tool_use.ts`), parented under the inference that emitted it.
+
+**Tool result.** A `user` JSONL record whose `message.content` contains `tool_result` blocks is the *output* of one or more tool executions. It has no `requestId` of its own (no API call happened). It is paired to its `tool_use` via `tool_use_id`. Tool results are not inferences either; they are the *input* that the next inference reads.
+
+**Why this matters.** Conflating tool calls with inferences inflates inference counts and misattributes cost. The user mental model — "how many times did we call the model?" — is exactly `requestId`-count. Tool calls happen between inferences; they shape the prompt for the *next* inference but are never themselves inferences.
 
 **In the transcript.**
 
 - An `assistant` JSONL record carries `requestId`. The record's `message.content` is an array of content blocks (`text`, `thinking`, `tool_use`, …). Claude Code flushes each content block as its own JSONL row, so one API response ≈ N consecutive assistant records sharing one `requestId`.
-- A `user` JSONL record whose `message.content` contains `tool_result` blocks is the *output* of one or more tool executions. It has no `requestId` of its own. The tool_result is paired to its `tool_use` via `tool_use_id`, not via `requestId`.
+- A `user` JSONL record with `tool_result` content is the local execution output. No `requestId`. Pairs to its `tool_use` via `tool_use_id`.
 
-**What makes an assistant row an inference span.** An assistant JSONL row becomes an inference span **only when its content block is `thinking`** — the model's reasoning. A `text` content block does **not** produce an inference span; it produces a `gen_ai.assistant.message` event on the turn root, which the Conversation view renders as a chat bubble. A `tool_use`-only row produces neither; its tool span alone represents the round-trip. Rows sharing a `requestId` are **not merged** into a single span — each `thinking` row is its own inference span, representing a distinct streaming window.
+**Inference span shape.** Rows of the same `requestId` are aggregated into one span: `usage` is taken once (identical across rows), `stop_reason` from the row that carries it, and the union of content-block types determines the `agent_trace.inference.has_*` booleans (`has_thinking`, `has_text`, `has_tool_use`). Content payloads attach as OTel-semconv events on the inference span — `gen_ai.assistant.reasoning` and `gen_ai.assistant.message` — emitted iff non-empty after truncation.
 
-**Why the asymmetry (reasoning → span, text → event).** Reasoning's primary signal is timing/cost (how long the model spent thinking, how many tokens) — the waterfall surfaces that as a bar. Text's primary signal is the content itself — the chat view surfaces that as a bubble. Emitting both a span and a chat event for `text` blocks caused UI duplication (the same content showed up twice: once as a waterfall bar, once as a bubble) without adding signal. Each kind now has exactly one UI surface.
-
-**`thinking` still emits `gen_ai.assistant.reasoning` events when plaintext is present.** In real Claude Code transcripts, the plaintext is empty (encrypted in `signature`), so the event is dropped at emission by the empty-content filter. The emission path is retained for harnesses or future transcript versions that may surface plaintext reasoning.
-
-**Consequence for the transformer.** Inference spans are per-thinking-row. Tool spans are per-`tool_use` block, with duration `tool_result.ts − tool_use.ts`. A `[thinking, tool_use]` response with one `requestId` emits one inference span (thinking) + one tool span (tool_use). A `[text]`-only response emits one `gen_ai.assistant.message` event on the turn root and no inference span. A `[text, tool_use]` response emits one message event + one tool span — no waterfall bar for the text's streaming window, by design.
-
-**Token aggregation** still dedupes by `requestId` (identical `usage` blob appears on every row of one response). Turn-level totals are unaffected by the span emission rule.
-
-**`agent_trace.inference.prompt` semantics.** Populated by walking backward from the assistant row through non-assistant records until the first prior assistant row. Present on the first qualifying block of a response; **absent** (key omitted, not empty string) on continuation blocks. Applies only to reasoning spans (text blocks have no span to attach a prompt to).
+**`agent_trace.inference.prompt` semantics.** Populated by walking backward from the *first* assistant row of the `requestId` group through non-assistant records (typically `tool_result` records and user input) until the prior assistant row. The prompt represents the context that triggered this inference — including any tool_result content that arrived since the last inference. One prompt per inference span; the key is omitted when the walk yields no content.
 
 **Anti-patterns (do not ship):**
 
-- Emitting an inference span per `tool_use` content block (conflates inferences with tool calls).
-- Emitting an inference span for a `text` content block — text flows through `gen_ai.assistant.message` events only; a span would duplicate the chat bubble.
-- Merging `thinking` + `text` rows of one `requestId` into a single span.
-- Double-counting `usage` tokens by summing across every assistant row (use `requestId` dedupe for aggregates).
-- Counting inference spans in `turn.toolCount` (they are structural, not user-facing work).
-- Labeling inference spans with `tool_use` (even though that is a legitimate `stop_reason` value, it reads as a tool classification).
+- Emitting more than one `inference` span per `requestId`, or emitting one for a `tool_use` block in isolation. A `tool_use` is part of the inference that emitted it; the local execution gets a separate tool span.
+- Counting tool spans in any "inference" total (or vice versa) — different units. Same for `turn.toolCount`.
+- Re-introducing `gen_ai.assistant.message` / `gen_ai.assistant.reasoning` events on the turn root for content that belongs to a specific `requestId` — those events live on the inference span.
+- Double-counting `usage` tokens by summing across every assistant row (use `requestId` dedupe).
+- Labeling inference spans with `tool_use` (`stop_reason: tool_use` is legitimate but the *span name* must remain `inference`).
 
 ## Design principles
 
@@ -76,70 +77,57 @@ These two are not the same thing. Confusing them is the largest recurring source
 
 ### 5. Trace topology (what the UI gets)
 
-One trace per turn — OTel-conventional. Session is an attribute (`session.id`) on each trace root, not a wrapping span. Conversations are a UI-side grouping of traces sharing a session id.
+One trace per turn — OTel-conventional. Session is an attribute (`session.id`) on each trace root, not a wrapping span. Conversations are a UI-side grouping of traces sharing a session id. `traceId` is deterministic: `${sessionId}:turn:${n}` or `${sessionId}:unattached`. React keys stay stable across polls.
 
 ```
 Trace { kind: 'turn', traceId: <sid>:turn:N }
-  turn:N                             attrs: session.id, agent_trace.harness, agent_trace.prompt,
-                                            gen_ai.request.model, per-turn token counts
-    <ToolName>                       duration = tool_result.ts − tool_use.ts
-    Agent                            subagent-spawning tool
-      subagent:<agentType>           nested subagent subtree
-        <nested tool spans …>
+  turn:N
+    inference                        one per requestId
+      <ToolName>                     duration = tool_result.ts − tool_use.ts
+      Agent                          subagent-spawning tool
+        subagent:<agentType>
+          inference
+            <nested tool spans …>
 
-Trace { kind: 'turn', traceId: <sid>:turn:N }   ← slash-command turn (case A)
-  turn:N        prompt = "/cmd args"            collapsed from caveat → /cmd → stdout triad
-    Skill       synthetic; attrs: agent_trace.tool.slash_command, agent_trace.tool.name='Skill'
-      subagent:<agentType>           attached only when session has exactly one slash triad
+Trace { kind: 'turn', traceId: <sid>:turn:N }   ← slash-command turn
+  turn:N        prompt = "/cmd args"
+    Skill       synthetic
+      subagent:<agentType>
 
-Trace { kind: 'unattached', traceId: <sid>:unattached }   ← only when orphans exist
+Trace { kind: 'unattached', traceId: <sid>:unattached }
   subagents:unattached
-    subagent:<agentType>             Skill-dispatched or otherwise unlinked
-                                      (also: multi-triad sessions with no structural link)
+    subagent:<agentType>
 ```
+
+See §2 for the rules governing subagent placement.
 
 Pre-first-turn hooks (e.g. `hook:SessionStart`) with `durationMs > 0` relocate onto turn 1's root. Zero-duration hooks remain events (Principle 6). If a file has pre-turn content but zero turns, that content is dropped.
 
-`traceId` is deterministic: `${sessionId}:turn:${n}` or `${sessionId}:unattached`. React keys stay stable across polls.
+Attribute names: `session.id` (OTel semconv) + `agent_trace.prompt`, `agent_trace.tool.name`, `agent_trace.tool.input_summary`, `agent_trace.tool.output_summary`, `agent_trace.subagent.type`, `agent_trace.subagent.task`, `gen_ai.request.model`, plus per-turn `agent_trace.turn.{input,output,cache_read,cache_creation}_tokens`. Plugin-specific metadata lives under `agent_trace.*`; don't invent names that overlap with official OTel GenAI semconv.
 
-Attribute names: `session.id` (OTel semconv) + `agent_trace.prompt`, `agent_trace.tool.name`, `agent_trace.tool.input_summary`, `agent_trace.tool.output_summary`, `agent_trace.subagent.type`, `agent_trace.subagent.task`, `gen_ai.request.model`, plus per-turn `agent_trace.turn.{input,output,cache_read,cache_creation}_tokens`.
-
-Assistant output is captured as events on the turn root (or on `subagent:<type>` spans for subagent records), not as spans. Two event names follow OTel GenAI semconv:
+Assistant output is captured as events on the **inference span** the content belongs to (one `inference` span per `requestId`). Two event names follow OTel GenAI semconv:
 
 - `gen_ai.assistant.message` with `gen_ai.message.content` — visible text replies.
 - `gen_ai.assistant.reasoning` with `gen_ai.reasoning.content` — extended-thinking reasoning.
 
-Records with no timestamp and empty/whitespace content are dropped. Events on the turn root are stable-sorted by `timeMs` so readers see chronological order.
+Tool-call content is *not* a separate event — it produces a child tool span instead, parented under the inference that emitted the `tool_use` block. Empty/whitespace content events are dropped. Events on a span are stable-sorted by `timeMs` so readers see chronological order. Other event types (context attachments, hooks) continue to live on the turn root since they are not tied to a specific API call.
 
 ### 5a. Cross-slice invariants (do not parallelize)
 
-`toTraces` iterates turn slices sequentially. Three pieces of state are shared across all slices:
-
-1. `subagentsById: Map` — consumed as `Agent`/`Task` tool_results pair to subagent files. Remainder becomes the unattached trace.
-2. `sideCtx.initialPermissionModeSet` — ensures `agent_trace.session.initial_permission_mode` is captured exactly once across the whole transcript.
-3. `slashTurns` registry — accumulated as slash-command slices emit synthetic `Skill` spans. The post-loop `attachSlashSubagents` pass reads this to nest unpaired subagents, but ONLY when the session has exactly one slash-command turn (1-to-1 by construction). Multi-triad sessions no-op to honor the no-timestamps rule (§2).
-
-All three are stamped onto every trace root at emission time. The slice loop must stay sequential; parallelizing would silently break subagent pairing and initial-mode capture.
+`toTraces` iterates turn slices sequentially because three accumulators are shared across all slices: `subagentsById` (drained by `Agent`/`Task` tool_results, remainder → unattached trace), `sideCtx.initialPermissionModeSet` (capture-once for `agent_trace.session.initial_permission_mode`), and `slashTurns` (post-loop `attachSlashSubagents` nests subagents only when the session has exactly one slash-command turn — multi-triad sessions no-op to honor §2). All three are stamped onto every trace root at emission time. Parallelizing would silently break subagent pairing and initial-mode capture.
 
 ### 6. No zero-duration marker spans
 
 - The prompt is a *property* of the turn (`agent_trace.prompt` attribute), not a sibling span.
 - Waterfall renderers assume `durationMs > 0`. Honoring that keeps the UI honest.
 
-### 7. Attribute naming: follow OTEL GenAI semantic conventions where they exist
+### 7. Payload hygiene
 
-- `gen_ai.request.model` for the assistant model.
-- Plugin-specific metadata lives under `agent_trace.*`.
-- Don't invent names that overlap with official semconv.
-
-### 8. Payload hygiene
-
-- Truncate tool inputs/outputs at `SUMMARY_MAX` (4000 chars) — log-like content where losing rows is tolerable.
-- Truncate assistant text + reasoning at `ASSISTANT_MAX` (16000 chars) — narrative content where the conclusion matters. Thinking blocks routinely run 5–20 KB; a 4 KB cap would mangle them.
+- Tool inputs/outputs use a smaller cap (log-like content where losing rows is tolerable). Assistant text + reasoning use a larger cap (narrative content where the conclusion matters; thinking blocks routinely run 5–20 KB and a small cap would mangle them). Actual constants live in `lib/traces/traces.js`.
 - `truncate(value, max)` accepts a per-call cap; callers pick the right constant.
 - No `console.log` on the hot read path.
 
-### 9. Server-side code lives outside the client bundle
+### 8. Server-side code lives outside the client bundle
 
 - `ui/vite-plugin-transcript-api.ts` imports from `../lib/traces/store.js`. It runs in Node at dev / preview time, never in the browser.
 - **Never import `lib/traces/*` from anything under `ui/src/`.** Those modules use `node:fs` — Vite will try to externalize and blow up.

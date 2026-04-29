@@ -208,6 +208,7 @@ export interface ConversationStep {
   outputTokens: number;
   span?: SpanNode;
   text?: string;
+  depth: number;
 }
 
 const TOOL_KIND_LABEL: Record<string, string> = {
@@ -247,7 +248,7 @@ function toolStepLabel(span: SpanNode): string {
   if (typeof subagentType === 'string' && subagentType) {
     const description = span.attributes['agent_trace.subagent.description'];
     if (typeof description === 'string' && description.trim()) {
-      return truncate(`${subagentType}: ${description.trim()}`, 60);
+      return `${subagentType}: ${description.trim()}`;
     }
     return `${name}: ${subagentType}`;
   }
@@ -258,7 +259,7 @@ function toolStepLabel(span: SpanNode): string {
   const summary = span.attributes['agent_trace.tool.input_summary'];
   if (typeof summary === 'string' && summary) {
     const trimmed = summary.replace(/\s+/g, ' ').trim();
-    if (trimmed) return `${name}: ${truncate(trimmed, 60)}`;
+    if (trimmed) return `${name}: ${trimmed}`;
   }
   return name;
 }
@@ -287,16 +288,22 @@ function isStructuralSpan(span: SpanNode): boolean {
 
 function walkInferenceAndTool(
   span: SpanNode,
-  emit: (step: 'inference' | 'tool', span: SpanNode) => void,
+  depth: number,
+  emit: (step: 'inference' | 'tool', span: SpanNode, depth: number) => void,
 ): void {
   if (span.name === 'inference') {
-    emit('inference', span);
+    emit('inference', span, depth);
     return;
   }
   if (!isStructuralSpan(span)) {
-    emit('tool', span);
+    emit('tool', span, depth);
   }
-  for (const child of span.children) walkInferenceAndTool(child, emit);
+  // A `subagent:<type>` span is structural and not emitted itself, but its
+  // children (the tools/inferences run by the subagent) belong one level
+  // deeper so the UI can indent them under their parent Agent dispatch.
+  const childDepth =
+    span.attributes['agent_trace.event_type'] === 'subagent' ? depth + 1 : depth;
+  for (const child of span.children) walkInferenceAndTool(child, childDepth, emit);
 }
 
 interface RawStep {
@@ -310,6 +317,7 @@ interface RawStep {
   text?: string;
   label: string;
   subtitle: string;
+  depth: number;
 }
 
 const TEXT_ENCODER = new TextEncoder();
@@ -345,11 +353,12 @@ function stepsForTurn(turn: Turn): RawStep[] {
       outputBytes: utf8ByteLength(promptText),
       outputTokens: 0,
       text: promptText,
-      label: truncate(promptText.replace(/\s+/g, ' ').trim(), 80) || 'User prompt',
+      label: promptText.replace(/\s+/g, ' ').trim() || 'User prompt',
       subtitle: 'User prompt',
+      depth: 0,
     });
   }
-  walkInferenceAndTool(turn.root, (kind, span) => {
+  walkInferenceAndTool(turn.root, 0, (kind, span, depth) => {
     if (kind === 'inference') {
       out.push({
         kind: 'inference',
@@ -361,6 +370,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
         span,
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
+        depth,
       });
     } else {
       const name =
@@ -375,6 +385,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
         span,
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
+        depth,
       });
     }
   });
@@ -390,8 +401,9 @@ function stepsForTurn(turn: Turn): RawStep[] {
       outputBytes: 0,
       outputTokens: 0,
       text,
-      label: truncate(text.replace(/\s+/g, ' ').trim(), 80),
+      label: text.replace(/\s+/g, ' ').trim(),
       subtitle: 'Assistant message',
+      depth: 0,
     });
   }
   out.sort((a, b) => a.timeMs - b.timeMs);
@@ -400,7 +412,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
 
 function stepsForUnattached(group: UnattachedGroup): RawStep[] {
   const out: RawStep[] = [];
-  walkInferenceAndTool(group.root, (kind, span) => {
+  walkInferenceAndTool(group.root, 0, (kind, span, depth) => {
     if (kind === 'inference') {
       out.push({
         kind: 'inference',
@@ -412,6 +424,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         span,
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
+        depth,
       });
     } else {
       const name =
@@ -426,6 +439,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         span,
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
+        depth,
       });
     }
   });
@@ -457,6 +471,7 @@ export function buildConversationSteps(
       outputTokens: raw.outputTokens,
       span: raw.span,
       text: raw.text,
+      depth: raw.depth,
     });
   };
   for (const turn of conversation.turns) {

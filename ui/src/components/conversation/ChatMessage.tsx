@@ -32,22 +32,32 @@ interface Props {
 interface RowProps {
   avatar: ReactNode;
   avatarRef?: React.Ref<HTMLSpanElement>;
+  avatarBare?: boolean;
   title: string;
   body?: ReactNode;
   badges?: ReactNode;
 }
 
-function Row({ avatar, avatarRef, title, body, badges }: RowProps) {
+function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
   return (
     <div className="flex items-start gap-3 py-3 pl-6 pr-6">
-      <Avatar
-        ref={avatarRef}
-        className="relative z-20 h-6 w-6 bg-background"
-      >
-        <AvatarFallback className="bg-muted text-muted-foreground">
+      {avatarBare ? (
+        <span
+          ref={avatarRef}
+          className="relative z-20 flex h-6 w-6 shrink-0 items-center justify-center"
+        >
           {avatar}
-        </AvatarFallback>
-      </Avatar>
+        </span>
+      ) : (
+        <Avatar
+          ref={avatarRef}
+          className="relative z-20 h-6 w-6 bg-background"
+        >
+          <AvatarFallback className="bg-muted text-muted-foreground">
+            {avatar}
+          </AvatarFallback>
+        </Avatar>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/80">
@@ -72,7 +82,7 @@ const claudeAvatarIcon = (
   <img
     src="/images/claude-logo.png"
     alt=""
-    className="h-3.5 w-3.5 rounded-sm object-contain ring-1 ring-black/10 dark:ring-white/10"
+    className="h-6 w-6 object-contain"
     aria-hidden="true"
   />
 );
@@ -245,6 +255,7 @@ export function ChatMessage({
       <Row
         avatar={claudeAvatarIcon}
         avatarRef={assistantAvatarRef}
+        avatarBare
         title="Claude"
         body={assistantBody}
         badges={assistantBadges}

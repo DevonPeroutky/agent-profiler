@@ -108,19 +108,49 @@ function withCumulative(steps: ConversationStep[]): CumStep[] {
   });
 }
 
+function isSubagentStep(s: ConversationStep): boolean {
+  return s.kind === 'tool' && s.subtitle === 'Subagent';
+}
+
 export function ConversationSteps({ conversation }: Props) {
   const steps = useMemo(
     () => withCumulative(buildConversationSteps(conversation)),
     [conversation],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const selected = steps.find((s) => s.id === selectedId) ?? null;
+
+  const visibleSteps = useMemo(() => {
+    if (collapsed.size === 0) return steps;
+    const out: CumStep[] = [];
+    let skipDepth: number | null = null;
+    for (const s of steps) {
+      if (skipDepth !== null && s.depth > skipDepth) continue;
+      skipDepth = null;
+      out.push(s);
+      if (collapsed.has(s.id)) skipDepth = s.depth;
+    }
+    return out;
+  }, [steps, collapsed]);
 
   if (steps.length === 0) return null;
 
   const turnCount = new Set(
     steps.filter((s) => s.turnNumber !== null).map((s) => s.turnNumber),
   ).size;
+
+  const onSelect = (s: CumStep) => {
+    if (isSubagentStep(s)) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        if (next.has(s.id)) next.delete(s.id);
+        else next.add(s.id);
+        return next;
+      });
+    }
+    setSelectedId(s.id);
+  };
 
   return (
     <section>
@@ -135,9 +165,10 @@ export function ConversationSteps({ conversation }: Props) {
       </div>
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         <StepList
-          steps={steps}
+          steps={visibleSteps}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          collapsed={collapsed}
+          onSelect={onSelect}
         />
         <StepDetail step={selected} steps={steps} />
       </div>
@@ -148,10 +179,41 @@ export function ConversationSteps({ conversation }: Props) {
 interface StepListProps {
   steps: CumStep[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  collapsed: Set<string>;
+  onSelect: (s: CumStep) => void;
 }
 
-function StepList({ steps, selectedId, onSelect }: StepListProps) {
+type ConnectorKind = 'vertical' | 'tee' | 'elbow' | 'empty';
+
+// For each row, compute the rail glyph at each depth column. The leaf column
+// (k = step.depth) is a tee when more siblings follow, elbow when this is the
+// last child. Ancestor columns (k < step.depth) draw a vertical pass-through
+// only when a later sibling at that depth still needs connecting; otherwise
+// they're empty (the parent group has already terminated above us).
+function computeConnectors(steps: CumStep[]): ConnectorKind[][] {
+  return steps.map((step, i) => {
+    if (step.depth <= 0) return [];
+    const out: ConnectorKind[] = [];
+    for (let k = 1; k <= step.depth; k++) {
+      const isLeaf = k === step.depth;
+      let kind: ConnectorKind = isLeaf ? 'elbow' : 'empty';
+      for (let j = i + 1; j < steps.length; j++) {
+        const next = steps[j];
+        if (next.traceId !== step.traceId) break;
+        if (next.depth < k) break;
+        if (next.depth === k) {
+          kind = isLeaf ? 'tee' : 'vertical';
+          break;
+        }
+      }
+      out.push(kind);
+    }
+    return out;
+  });
+}
+
+function StepList({ steps, selectedId, collapsed, onSelect }: StepListProps) {
+  const connectors = useMemo(() => computeConnectors(steps), [steps]);
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
       {steps.map((s, i) => {
@@ -159,14 +221,24 @@ function StepList({ steps, selectedId, onSelect }: StepListProps) {
         const dividerBeforeNext =
           next !== undefined && next.turnNumber !== s.turnNumber;
         const dividerHere = i > 0 && steps[i - 1]?.turnNumber !== s.turnNumber;
+        const hasChildren =
+          next !== undefined &&
+          next.traceId === s.traceId &&
+          next.depth > s.depth;
+        const isCollapsible = isSubagentStep(s);
+        const isCollapsed = collapsed.has(s.id);
         return (
           <Fragment key={s.id}>
             {dividerHere && <TurnDivider turnNumber={s.turnNumber} />}
             <StepRow
               step={s}
+              connectors={connectors[i]}
               isSelected={s.id === selectedId}
-              onSelect={() => onSelect(s.id)}
+              onSelect={() => onSelect(s)}
               hideBottomBorder={dividerBeforeNext}
+              hasChildren={hasChildren}
+              isCollapsible={isCollapsible}
+              isCollapsed={isCollapsed}
             />
           </Fragment>
         );
@@ -190,43 +262,93 @@ function TurnDivider({ turnNumber }: { turnNumber: number | null }) {
 
 interface StepRowProps {
   step: CumStep;
+  connectors: ConnectorKind[];
   isSelected: boolean;
   onSelect: () => void;
   hideBottomBorder?: boolean;
+  hasChildren?: boolean;
+  isCollapsible?: boolean;
+  isCollapsed?: boolean;
 }
 
-function StepRow({ step, isSelected, onSelect, hideBottomBorder }: StepRowProps) {
+function Connector({ kind }: { kind: ConnectorKind }) {
+  return (
+    <span className="relative block h-full w-12 self-stretch" aria-hidden>
+      {kind === 'vertical' && (
+        <span className="absolute -top-2.5 -bottom-2.5 left-[9px] border-l border-border" />
+      )}
+      {kind === 'tee' && (
+        <>
+          <span className="absolute -top-2.5 -bottom-2.5 left-[9px] border-l border-border" />
+          <span className="absolute left-[9px] right-0 top-1/2 border-t border-border" />
+        </>
+      )}
+      {kind === 'elbow' && (
+        <>
+          <span className="absolute -top-2.5 bottom-1/2 left-[9px] border-l border-border" />
+          <span className="absolute left-[9px] right-0 top-1/2 border-t border-border" />
+        </>
+      )}
+    </span>
+  );
+}
+
+function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, hasChildren, isCollapsible, isCollapsed }: StepRowProps) {
   const meta = metaFor(step);
   const inputTok = step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
   return (
     <button
       type="button"
       onClick={onSelect}
+      aria-expanded={isCollapsible ? !isCollapsed : undefined}
       className={
-        'grid w-full grid-cols-[36px_22px_1fr_auto_auto] items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
+        'grid w-full grid-cols-[36px_auto_1fr_auto_auto] items-stretch gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
         (hideBottomBorder ? '' : 'border-b border-border last:border-b-0 ') +
         (isSelected ? 'bg-muted' : '')
       }
     >
-      <span className="font-mono text-[11px] text-muted-foreground/70">
-        {step.turnNumber !== null ? `T${step.turnNumber}` : '—'}
+      <span className="flex items-center justify-between font-mono text-[11px] text-muted-foreground/70">
+        <span>{step.turnNumber !== null ? `T${step.turnNumber}` : '—'}</span>
+        {isCollapsible ? (
+          <span
+            aria-hidden
+            className={
+              'inline-block text-[10px] text-muted-foreground transition-transform ' +
+              (isCollapsed ? '' : 'rotate-90')
+            }
+          >
+            ▶
+          </span>
+        ) : null}
       </span>
-      <span
-        className="inline-flex h-[18px] w-[18px] items-center justify-center rounded font-mono text-[10px] font-semibold tracking-tighter"
-        style={{ background: meta.color, color: meta.fg ?? '#fff' }}
-      >
-        {meta.glyph}
+      <span className="relative flex items-stretch">
+        {connectors.map((kind, i) => (
+          <Connector key={i} kind={kind} />
+        ))}
+        <span
+          className="inline-flex h-[18px] w-[18px] items-center justify-center self-center rounded font-mono text-[10px] font-semibold tracking-tighter"
+          style={{ background: meta.color, color: meta.fg ?? '#fff' }}
+        >
+          {meta.glyph}
+        </span>
+        {hasChildren && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-2.5 border-l border-border"
+            style={{ left: `${step.depth * 48 + 9}px`, top: 'calc(50% + 9px)' }}
+          />
+        )}
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[13px] font-medium text-foreground">
-          {step.label}
+      <span className="flex min-w-0 flex-col justify-center">
+        <span className="flex items-center gap-1.5 truncate text-[13px] font-medium text-foreground">
+          <span className="truncate">{step.label}</span>
         </span>
         <span className="block truncate font-mono text-[11.5px] text-muted-foreground">
           {meta.label}
           {step.durationMs > 0 ? ' · ' + fmt.ms(step.durationMs) : ''}
         </span>
       </span>
-      <span className="flex gap-2.5 font-mono text-[11.5px] text-muted-foreground">
+      <span className="flex items-center gap-2.5 font-mono text-[11.5px] text-muted-foreground">
         {inputTok > 0 && (
           <span>
             <span className="text-muted-foreground/60">→ </span>
@@ -240,7 +362,7 @@ function StepRow({ step, isSelected, onSelect, hideBottomBorder }: StepRowProps)
           </span>
         )}
       </span>
-      <span className="min-w-[66px] text-right font-mono text-[11px] text-muted-foreground/70">
+      <span className="flex min-w-[66px] items-center justify-end text-right font-mono text-[11px] text-muted-foreground/70">
         Σ {fmt.n(step.cumTotal)}
       </span>
     </button>
