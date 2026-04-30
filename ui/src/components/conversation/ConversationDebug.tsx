@@ -200,10 +200,11 @@ function RecordRow({
 
 function TypeBadge({ type }: { type: string }) {
   const palette: Record<string, string> = {
-    user: 'border-foreground/30 text-foreground',
+    user: 'border-sky-500/40 text-sky-500',
     assistant: 'border-emerald-500/40 text-emerald-500',
-    system: 'border-amber-500/40 text-amber-500',
-    summary: 'border-sky-500/40 text-sky-500',
+    system: 'border-purple-500/40 text-purple-500',
+    summary: 'border-violet-500/40 text-violet-500',
+    tool: 'border-orange-500/40 text-orange-500',
   };
   const cls = palette[type] ?? 'border-border text-muted-foreground';
   return (
@@ -222,7 +223,8 @@ interface Summary {
 }
 
 function summarize(record: TranscriptRecord): Summary {
-  const type = String(record.type ?? 'unknown');
+  const rawType = String(record.type ?? 'unknown');
+  let hasToolResult = false;
   const preview = (() => {
     const message = record.message;
     if (message && typeof message === 'object') {
@@ -241,6 +243,7 @@ function summarize(record: TranscriptRecord): Summary {
           } else if (kind === 'tool_use') {
             parts.push(`[tool_use ${String(b.name ?? '')}]`);
           } else if (kind === 'tool_result') {
+            hasToolResult = true;
             const tid = String(b.tool_use_id ?? '');
             parts.push(`[tool_result ${tid.slice(0, 12)}…]`);
           } else {
@@ -253,6 +256,7 @@ function summarize(record: TranscriptRecord): Summary {
     if (typeof record.summary === 'string') return collapse(record.summary);
     return Object.keys(record).slice(0, 8).join(', ');
   })();
+  const type = rawType === 'user' && hasToolResult ? 'tool' : rawType;
   return { type, preview };
 }
 

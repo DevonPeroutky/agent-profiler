@@ -554,15 +554,18 @@ export function buildConversationSteps(
   return steps;
 }
 
+export type TrajectorySegment =
+  | { kind: 'message'; text: string }
+  | { kind: 'reasoning'; text: string };
+
 export interface TrajectoryStep {
   id: string;
   index: number;
   turnNumber: number | null;
   role: 'user' | 'agent';
   model: string | null;
-  text: string;
+  segments: TrajectorySegment[];
   preview: string;
-  reasoning: string;
   toolCalls: SpanNode[];
   startMs: number;
   durationMs: number;
@@ -576,6 +579,32 @@ function collapsePreview(s: string): string {
   return flat.length <= TRAJECTORY_PREVIEW_MAX
     ? flat
     : flat.slice(0, TRAJECTORY_PREVIEW_MAX - 1) + '…';
+}
+
+function previewFromToolCalls(toolCalls: SpanNode[]): string {
+  if (toolCalls.length === 0) return '';
+  const names = toolCalls.map(
+    (span) =>
+      String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool',
+  );
+  const head = names[0];
+  const rest = names.length - 1;
+  const label = rest > 0 ? `${head} +${rest} more` : head;
+  return collapsePreview(`called ${label}`);
+}
+
+function previewFromSegments(
+  segments: TrajectorySegment[],
+  toolCalls: SpanNode[],
+): string {
+  const firstMessage = segments.find((s) => s.kind === 'message');
+  if (firstMessage) return collapsePreview(firstMessage.text);
+  const firstReasoning = segments.find((s) => s.kind === 'reasoning');
+  if (firstReasoning) {
+    const body = collapsePreview(firstReasoning.text);
+    if (body) return 'thinking · ' + body;
+  }
+  return previewFromToolCalls(toolCalls);
 }
 
 /**
@@ -594,15 +623,15 @@ export function buildTrajectorySteps(
   while (i < flat.length) {
     const s = flat[i];
     if (s.kind === 'user-prompt') {
+      const text = s.text ?? '';
       out.push({
         id: s.id,
         index: out.length + 1,
         turnNumber: s.turnNumber,
         role: 'user',
         model: null,
-        text: s.text ?? '',
-        preview: collapsePreview(s.text ?? ''),
-        reasoning: '',
+        segments: text ? [{ kind: 'message', text }] : [],
+        preview: collapsePreview(text),
         toolCalls: [],
         startMs: s.timeMs,
         durationMs: 0,
@@ -612,8 +641,7 @@ export function buildTrajectorySteps(
     }
     if (s.kind === 'inference') {
       const baseDepth = s.depth;
-      let text = '';
-      let reasoning = '';
+      const segments: TrajectorySegment[] = [];
       const toolCalls: SpanNode[] = [];
       let j = i + 1;
       while (j < flat.length) {
@@ -622,9 +650,9 @@ export function buildTrajectorySteps(
         if (c.kind === 'inference' || c.kind === 'user-prompt') break;
         if (c.depth <= baseDepth) break;
         if (c.kind === 'assistant-message' && c.text) {
-          text = text ? text + '\n\n' + c.text : c.text;
+          segments.push({ kind: 'message', text: c.text });
         } else if (c.kind === 'reasoning' && c.text) {
-          reasoning = reasoning ? reasoning + '\n\n' + c.text : c.text;
+          segments.push({ kind: 'reasoning', text: c.text });
         } else if (c.kind === 'tool' && c.span && c.depth === baseDepth + 1) {
           toolCalls.push(c.span);
         }
@@ -637,9 +665,8 @@ export function buildTrajectorySteps(
         turnNumber: s.turnNumber,
         role: 'agent',
         model: typeof modelAttr === 'string' && modelAttr ? modelAttr : null,
-        text,
-        preview: collapsePreview(text || '(no message)'),
-        reasoning,
+        segments,
+        preview: previewFromSegments(segments, toolCalls),
         toolCalls,
         startMs: s.timeMs,
         durationMs: s.durationMs,

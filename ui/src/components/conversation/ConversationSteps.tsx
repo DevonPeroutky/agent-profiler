@@ -311,7 +311,7 @@ function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, has
       onClick={onSelect}
       aria-expanded={isCollapsible ? !isCollapsed : undefined}
       className={
-        'grid w-full grid-cols-[36px_auto_1fr_auto_auto] items-stretch gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
+        'grid w-full grid-cols-[36px_auto_1fr_auto] items-stretch gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
         (hideBottomBorder ? '' : 'border-b border-border last:border-b-0 ') +
         (isSelected ? 'bg-muted' : '')
       }
@@ -373,9 +373,6 @@ function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, has
             {fmt.n(step.tokens.output)}
           </span>
         )}
-      </span>
-      <span className="flex min-w-[66px] items-center justify-end text-right font-mono text-[11px] text-muted-foreground/70">
-        Σ {fmt.n(step.cumTotal)}
       </span>
     </button>
   );

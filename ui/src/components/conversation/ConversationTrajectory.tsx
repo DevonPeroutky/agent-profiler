@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, Copy, User } from 'lucide-react';
+import { Check, ChevronDown, Copy, Lock, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -196,17 +196,17 @@ function TrajectoryRow({ step, baseStartMs, isOpen, onToggle }: RowProps) {
       <Collapsible open={isOpen}>
         <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
           <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3">
-            {step.text && (
-              <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground">
-                {step.text}
-              </pre>
-            )}
-            {step.reasoning && (
-              <Section title="Reasoning">
-                <pre className="whitespace-pre-wrap break-words rounded-md bg-muted px-3 py-2 font-sans text-[12px] leading-relaxed text-muted-foreground">
-                  {step.reasoning}
+            {step.segments.map((seg, idx) =>
+              seg.kind === 'message' ? (
+                <pre
+                  key={idx}
+                  className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground"
+                >
+                  {seg.text}
                 </pre>
-              </Section>
+              ) : (
+                <ReasoningMarker key={idx} />
+              ),
             )}
             {step.toolCalls.length > 0 && (
               <Section title="Tool Calls">
@@ -217,16 +217,24 @@ function TrajectoryRow({ step, baseStartMs, isOpen, onToggle }: RowProps) {
                 </div>
               </Section>
             )}
-            {!step.text &&
-              !step.reasoning &&
-              step.toolCalls.length === 0 && (
-                <p className="text-[12px] italic text-muted-foreground">
-                  (no content)
-                </p>
-              )}
+            {step.segments.length === 0 && step.toolCalls.length === 0 && (
+              <p className="text-[12px] italic text-muted-foreground">
+                (no content)
+              </p>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>
+    </div>
+  );
+}
+
+function ReasoningMarker() {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+      <Lock className="h-3 w-3" aria-hidden="true" />
+      <span>thinking</span>
+      <span className="text-muted-foreground/60">· encrypted</span>
     </div>
   );
 }
