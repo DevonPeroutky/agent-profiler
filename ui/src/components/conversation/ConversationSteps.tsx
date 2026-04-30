@@ -92,6 +92,10 @@ function totalTokens(t: StepTokens): number {
   return t.input + t.cacheRead + t.cacheCreation + t.output;
 }
 
+function shortReq(id: string): string {
+  return id.length <= 10 ? id : 'req…' + id.slice(-6);
+}
+
 interface CumStep extends ConversationStep {
   cumInput: number;
   cumOutput: number;
@@ -351,6 +355,9 @@ function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, has
         <span className="block truncate font-mono text-[11.5px] text-muted-foreground">
           {meta.label}
           {step.durationMs > 0 ? ' · ' + fmt.ms(step.durationMs) : ''}
+          {step.requestId ? (
+            <span title={step.requestId}> · {shortReq(step.requestId)}</span>
+          ) : null}
         </span>
       </span>
       <span className="flex items-center gap-2.5 font-mono text-[11.5px] text-muted-foreground">
@@ -496,7 +503,16 @@ function StepPayload({ step }: { step: CumStep }) {
     step.kind === 'assistant-message' ||
     step.kind === 'reasoning'
   ) {
-    return <PreBlock>{step.text ?? ''}</PreBlock>;
+    return (
+      <div className="space-y-2">
+        {step.requestId && (
+          <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[12px]">
+            <RowKv k="request id" v={step.requestId} />
+          </dl>
+        )}
+        <PreBlock>{step.text ?? ''}</PreBlock>
+      </div>
+    );
   }
   if (step.kind === 'inference') {
     const stop =

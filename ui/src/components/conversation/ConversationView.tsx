@@ -4,6 +4,7 @@ import { ContextWindowChart } from './ContextWindowChart';
 import { ConversationContextChart } from './ConversationContextChart';
 import { ConversationOverview } from './ConversationOverview';
 import { ConversationSteps } from './ConversationSteps';
+import { ConversationTrajectory } from './ConversationTrajectory';
 import { TurnMessages } from './TurnMessages';
 
 interface Props {
@@ -33,6 +34,7 @@ export function ConversationView({
           <TabsList>
             <TabsTrigger value="steps">Steps</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
+            <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
           </TabsList>
           <TabsContent value="steps">
             <ConversationSteps conversation={conversation} />
@@ -44,6 +46,9 @@ export function ConversationView({
               onSelectSpan={onSelectSpan}
               showMeta={showMeta}
             />
+          </TabsContent>
+          <TabsContent value="trajectory">
+            <ConversationTrajectory conversation={conversation} />
           </TabsContent>
         </Tabs>
       </div>

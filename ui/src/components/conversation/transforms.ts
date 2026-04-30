@@ -223,6 +223,7 @@ export interface ConversationStep {
   span?: SpanNode;
   text?: string;
   depth: number;
+  requestId?: string;
 }
 
 const TOOL_KIND_LABEL: Record<string, string> = {
@@ -336,6 +337,7 @@ interface RawStep {
   label: string;
   subtitle: string;
   depth: number;
+  requestId?: string;
 }
 
 const TEXT_ENCODER = new TextEncoder();
@@ -378,6 +380,9 @@ function stepsForTurn(turn: Turn): RawStep[] {
   }
   walkInferenceAndTool(turn.root, 0, (kind, span, depth) => {
     if (kind === 'inference') {
+      const requestId =
+        String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
+        undefined;
       out.push({
         kind: 'inference',
         timeMs: span.startMs,
@@ -389,6 +394,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
         depth,
+        requestId,
       });
       // Assistant text + reasoning live as events on the inference span.
       // Emit them as siblings of the inference's tool children (depth+1)
@@ -410,6 +416,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
             label: text.replace(/\s+/g, ' ').trim(),
             subtitle: 'Assistant message',
             depth: depth + 1,
+            requestId,
           });
         } else if (e.name === 'gen_ai.assistant.reasoning') {
           const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '').trim();
@@ -425,6 +432,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
             label: text.replace(/\s+/g, ' ').trim(),
             subtitle: 'Reasoning',
             depth: depth + 1,
+            requestId,
           });
         }
       }
@@ -471,6 +479,9 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
   const out: RawStep[] = [];
   walkInferenceAndTool(group.root, 0, (kind, span, depth) => {
     if (kind === 'inference') {
+      const requestId =
+        String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
+        undefined;
       out.push({
         kind: 'inference',
         timeMs: span.startMs,
@@ -482,6 +493,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         label: inferenceLabel(span),
         subtitle: inferenceSubtitle(span),
         depth,
+        requestId,
       });
     } else {
       const name =
@@ -528,6 +540,7 @@ export function buildConversationSteps(
       span: raw.span,
       text: raw.text,
       depth: raw.depth,
+      requestId: raw.requestId,
     });
   };
   for (const turn of conversation.turns) {
@@ -539,6 +552,104 @@ export function buildConversationSteps(
     raws.forEach((r, i) => push(group.traceId, null, r, i));
   }
   return steps;
+}
+
+export interface TrajectoryStep {
+  id: string;
+  index: number;
+  turnNumber: number | null;
+  role: 'user' | 'agent';
+  model: string | null;
+  text: string;
+  preview: string;
+  reasoning: string;
+  toolCalls: SpanNode[];
+  startMs: number;
+  durationMs: number;
+}
+
+const TRAJECTORY_PREVIEW_MAX = 140;
+
+function collapsePreview(s: string): string {
+  const flat = s.replace(/\s+/g, ' ').trim();
+  if (!flat) return '';
+  return flat.length <= TRAJECTORY_PREVIEW_MAX
+    ? flat
+    : flat.slice(0, TRAJECTORY_PREVIEW_MAX - 1) + '…';
+}
+
+/**
+ * One trajectory row per user prompt or inference. An inference row absorbs
+ * the assistant-message text, reasoning, and direct tool calls that
+ * `buildConversationSteps` emits as children at `depth + 1` underneath it.
+ * Subagent inferences become their own rows; their tool calls hang under
+ * them rather than under the parent inference.
+ */
+export function buildTrajectorySteps(
+  conversation: ConversationSummary,
+): TrajectoryStep[] {
+  const flat = buildConversationSteps(conversation);
+  const out: TrajectoryStep[] = [];
+  let i = 0;
+  while (i < flat.length) {
+    const s = flat[i];
+    if (s.kind === 'user-prompt') {
+      out.push({
+        id: s.id,
+        index: out.length + 1,
+        turnNumber: s.turnNumber,
+        role: 'user',
+        model: null,
+        text: s.text ?? '',
+        preview: collapsePreview(s.text ?? ''),
+        reasoning: '',
+        toolCalls: [],
+        startMs: s.timeMs,
+        durationMs: 0,
+      });
+      i++;
+      continue;
+    }
+    if (s.kind === 'inference') {
+      const baseDepth = s.depth;
+      let text = '';
+      let reasoning = '';
+      const toolCalls: SpanNode[] = [];
+      let j = i + 1;
+      while (j < flat.length) {
+        const c = flat[j];
+        if (c.traceId !== s.traceId) break;
+        if (c.kind === 'inference' || c.kind === 'user-prompt') break;
+        if (c.depth <= baseDepth) break;
+        if (c.kind === 'assistant-message' && c.text) {
+          text = text ? text + '\n\n' + c.text : c.text;
+        } else if (c.kind === 'reasoning' && c.text) {
+          reasoning = reasoning ? reasoning + '\n\n' + c.text : c.text;
+        } else if (c.kind === 'tool' && c.span && c.depth === baseDepth + 1) {
+          toolCalls.push(c.span);
+        }
+        j++;
+      }
+      const modelAttr = s.span?.attributes['gen_ai.request.model'];
+      out.push({
+        id: s.id,
+        index: out.length + 1,
+        turnNumber: s.turnNumber,
+        role: 'agent',
+        model: typeof modelAttr === 'string' && modelAttr ? modelAttr : null,
+        text,
+        preview: collapsePreview(text || '(no message)'),
+        reasoning,
+        toolCalls,
+        startMs: s.timeMs,
+        durationMs: s.durationMs,
+      });
+      i = j;
+      continue;
+    }
+    i++;
+  }
+  return out;
 }
 
 export type TurnTimelineEntry =
