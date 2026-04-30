@@ -2,6 +2,7 @@ import type { ConversationSummary, SpanNode } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContextWindowChart } from './ContextWindowChart';
 import { ConversationContextChart } from './ConversationContextChart';
+import { ConversationDebug } from './ConversationDebug';
 import { ConversationOverview } from './ConversationOverview';
 import { ConversationSteps } from './ConversationSteps';
 import { ConversationTrajectory } from './ConversationTrajectory';
@@ -35,6 +36,7 @@ export function ConversationView({
             <TabsTrigger value="steps">Steps</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
+            <TabsTrigger value="debug">Debug</TabsTrigger>
           </TabsList>
           <TabsContent value="steps">
             <ConversationSteps conversation={conversation} />
@@ -49,6 +51,9 @@ export function ConversationView({
           </TabsContent>
           <TabsContent value="trajectory">
             <ConversationTrajectory conversation={conversation} />
+          </TabsContent>
+          <TabsContent value="debug">
+            <ConversationDebug sessionId={conversation.sessionId} />
           </TabsContent>
         </Tabs>
       </div>
