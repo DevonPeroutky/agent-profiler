@@ -30,8 +30,8 @@ export function ConversationView({
         <ContextWindowChart conversation={conversation} />
         <ConversationContextChart conversation={conversation} />
       </div>
-      <div className="px-6">
-        <Tabs defaultValue="steps" className="w-full">
+      <div className="grid grid-cols-1 gap-6 px-6 lg:grid-cols-2">
+        <Tabs defaultValue="steps" className="min-w-0">
           <TabsList>
             <TabsTrigger value="steps">Steps</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
@@ -56,6 +56,9 @@ export function ConversationView({
             <ConversationDebug sessionId={conversation.sessionId} />
           </TabsContent>
         </Tabs>
+        <div className="min-w-0">
+          <ConversationDebug sessionId={conversation.sessionId} />
+        </div>
       </div>
     </div>
   );
