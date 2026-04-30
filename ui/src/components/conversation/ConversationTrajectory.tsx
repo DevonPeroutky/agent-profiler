@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Check, ChevronDown, Copy, Lock, User } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Brain, Check, ChevronDown, Copy, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,23 @@ import {
   Collapsible,
   CollapsibleContent,
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary, SpanNode } from '@/types';
 import { fmt } from './format';
-import { buildTrajectorySteps, type TrajectoryStep } from './transforms';
+import {
+  buildTrajectorySteps,
+  type InferenceUsage,
+  type StepTokens,
+  type TrajectoryEntry,
+  type TrajectoryInference,
+  type TrajectoryStep,
+} from './transforms';
 
 interface Props {
   conversation: ConversationSummary;
@@ -45,20 +58,22 @@ export function ConversationTrajectory({ conversation }: Props) {
     });
 
   return (
-    <section>
-      <Header count={steps.length} />
-      <StepBar steps={steps} maxDuration={maxDuration} />
-      <div className="overflow-hidden rounded-lg border border-border bg-background">
-        {steps.map((s) => (
-          <TrajectoryRow
-            key={s.id}
-            step={s}
-            isOpen={expanded.has(s.id)}
-            onToggle={() => toggle(s.id)}
-          />
-        ))}
-      </div>
-    </section>
+    <TooltipProvider delayDuration={150}>
+      <section>
+        <Header count={steps.length} />
+        <StepBar steps={steps} maxDuration={maxDuration} />
+        <div className="overflow-hidden rounded-lg border border-border bg-background">
+          {steps.map((s) => (
+            <TrajectoryRow
+              key={s.id}
+              step={s}
+              isOpen={expanded.has(s.id)}
+              onToggle={() => toggle(s.id)}
+            />
+          ))}
+        </div>
+      </section>
+    </TooltipProvider>
   );
 }
 
@@ -97,12 +112,27 @@ function StepBar({
             ? 'var(--tool-user, hsl(220 70% 60%))'
             : `hsl(220 8% ${Math.round(72 - intensity * 50)}%)`;
         return (
-          <span
-            key={s.id}
-            className="block h-full border-r border-background/60 last:border-r-0"
-            style={{ flex: `${flexBasis} 1 0`, background }}
-            title={`#${s.index} · ${s.role}${s.durationMs > 0 ? ' · ' + fmt.ms(s.durationMs) : ''}`}
-          />
+          <Tooltip key={s.id}>
+            <TooltipTrigger asChild>
+              <span
+                className="block h-full cursor-pointer border-r border-background/60 last:border-r-0"
+                style={{ flex: `${flexBasis} 1 0`, background }}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[280px]">
+              <div className="font-medium">
+                #{s.index} · {s.role}
+              </div>
+              <div className="font-mono text-[11px] text-muted-foreground">
+                {s.durationMs > 0 ? fmt.ms(s.durationMs) : '—'}
+              </div>
+              {s.preview && (
+                <div className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">
+                  {s.preview}
+                </div>
+              )}
+            </TooltipContent>
+          </Tooltip>
         );
       })}
     </div>
@@ -153,13 +183,8 @@ function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
               : 'border-emerald-500/40 text-emerald-500',
           )}
         >
-          {isUser ? 'user' : 'agent'}
+          {isUser ? 'user' : (step.model ?? 'agent')}
         </Badge>
-        {step.model && (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {step.model}
-          </span>
-        )}
       </span>
       <span className="min-w-0 truncate text-[13px] text-foreground">
         {step.preview || (
@@ -214,52 +239,188 @@ function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
   );
 }
 
+function isDispatchSpan(span: SpanNode): boolean {
+  return span.children.some(
+    (c) => c.attributes?.['agent_trace.event_type'] === 'subagent',
+  );
+}
+
+function isSubagentEntry(
+  entry: TrajectoryEntry,
+  inferences: TrajectoryInference[],
+): boolean {
+  return inferences[entry.inferenceIdx]?.subagent === true;
+}
+
 function ExpandedEntries({ step }: { step: TrajectoryStep }) {
   if (step.entries.length === 0) {
     return (
       <p className="text-[12px] italic text-muted-foreground">(no content)</p>
     );
   }
+  const nodes: ReactNode[] = [];
+  let i = 0;
+  while (i < step.entries.length) {
+    const entry = step.entries[i];
+    if (entry.kind === 'tool' && isDispatchSpan(entry.span)) {
+      const nested: TrajectoryEntry[] = [];
+      let j = i + 1;
+      while (
+        j < step.entries.length &&
+        isSubagentEntry(step.entries[j], step.inferences)
+      ) {
+        nested.push(step.entries[j]);
+        j++;
+      }
+      nodes.push(
+        <ToolCallBlock key={i} span={entry.span}>
+          {nested.length > 0 ? (
+            <NestedEntries entries={nested} inferences={step.inferences} />
+          ) : null}
+        </ToolCallBlock>,
+      );
+      i = j;
+      continue;
+    }
+    nodes.push(
+      <EntryBlock key={i} entry={entry} inferences={step.inferences} />,
+    );
+    i++;
+  }
+  return <div className="space-y-2.5">{nodes}</div>;
+}
+
+function NestedEntries({
+  entries,
+  inferences,
+}: {
+  entries: TrajectoryEntry[];
+  inferences: TrajectoryInference[];
+}) {
   return (
     <div className="space-y-2.5">
-      {step.entries.map((entry, i) => {
-        const subagent =
-          step.inferences[entry.inferenceIdx]?.subagent ?? false;
-        const wrap = subagent ? 'border-l-2 border-violet-500/40 pl-3' : '';
-        return (
-          <div key={i} className={wrap}>
-            {entry.kind === 'message' && <MessageBlock text={entry.text} />}
-            {entry.kind === 'reasoning' && <ThinkingBlock text={entry.text} />}
-            {entry.kind === 'tool' && <ToolCallBlock span={entry.span} />}
-          </div>
-        );
-      })}
+      {entries.map((entry, i) => (
+        <EntryBlock key={i} entry={entry} inferences={inferences} />
+      ))}
     </div>
   );
 }
 
-function MessageBlock({ text }: { text: string }) {
+function EntryBlock({
+  entry,
+  inferences,
+}: {
+  entry: TrajectoryEntry;
+  inferences: TrajectoryInference[];
+}) {
+  if (entry.kind === 'message') {
+    const tokens = inferences[entry.inferenceIdx]?.tokens;
+    return <MessageBlock text={entry.text} tokens={tokens} />;
+  }
+  if (entry.kind === 'reasoning')
+    return <ThinkingBlock text={entry.text} usage={entry.usage} />;
+  return <ToolCallBlock span={entry.span} />;
+}
+
+const TOK_ROWS: Array<{
+  key: 'input' | 'cacheRead' | 'cacheCreation' | 'output';
+  label: string;
+  cssVar: string;
+}> = [
+  { key: 'input', label: 'Fresh input', cssVar: '--tok-fresh' },
+  { key: 'cacheRead', label: 'Cache read', cssVar: '--tok-cache-read' },
+  { key: 'cacheCreation', label: 'Cache write', cssVar: '--tok-cache-write' },
+  { key: 'output', label: 'Output', cssVar: '--tok-output' },
+];
+
+function MessageBlock({
+  text,
+  tokens,
+}: {
+  text: string;
+  tokens?: StepTokens;
+}) {
+  const hasTokens =
+    !!tokens &&
+    (tokens.input > 0 ||
+      tokens.cacheRead > 0 ||
+      tokens.cacheCreation > 0 ||
+      tokens.output > 0);
+  const inputTotal = tokens
+    ? tokens.input + tokens.cacheRead + tokens.cacheCreation
+    : 0;
   return (
-    <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground">
-      {text}
-    </pre>
+    <div className="flex flex-col">
+      <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground">
+        {text}
+      </pre>
+      {hasTokens && tokens && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="mt-1 flex cursor-default justify-end font-mono text-[10px] text-muted-foreground/60 hover:text-muted-foreground">
+              {fmt.n(inputTotal)} in · {fmt.n(tokens.output)} out
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="px-3 py-2">
+            <div className="flex flex-col gap-1">
+              {TOK_ROWS.map(({ key, label, cssVar }) => (
+                <div
+                  key={key}
+                  className="flex items-center gap-3 text-[11px]"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-sm"
+                    style={{ background: `var(${cssVar})` }}
+                  />
+                  <span className="flex-1 text-muted-foreground">{label}</span>
+                  <span className="font-mono tabular-nums">
+                    {fmt.n(tokens[key])}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </div>
   );
 }
 
-function ThinkingBlock({ text }: { text: string }) {
+function ThinkingBlock({
+  text,
+  usage,
+}: {
+  text: string;
+  usage: InferenceUsage;
+}) {
+  const hasUsage =
+    usage.outputTokens > 0 ||
+    usage.inputTokens > 0 ||
+    usage.cacheReadTokens > 0 ||
+    usage.cacheCreationTokens > 0;
+  const inputTotal =
+    usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
   return (
-    <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2">
-      <div className="mb-1 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-        <Lock className="h-3 w-3" aria-hidden="true" />
-        <span>thinking</span>
-      </div>
+    <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2">
+      <Brain
+        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+        thinking
+      </span>
       {text ? (
-        <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px] leading-relaxed text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">
           {text}
-        </pre>
+        </span>
       ) : (
-        <span className="font-mono text-[11px] text-muted-foreground/60">
+        <span className="flex-1 font-mono text-[11px] italic text-muted-foreground/60">
           encrypted
+        </span>
+      )}
+      {hasUsage && (
+        <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/70">
+          {fmt.n(inputTotal)} in · {fmt.n(usage.outputTokens)} out
         </span>
       )}
     </div>
@@ -379,7 +540,13 @@ function formatValue(v: unknown): string {
   return JSON.stringify(v, null, 2);
 }
 
-function ToolCallBlock({ span }: { span: SpanNode }) {
+function ToolCallBlock({
+  span,
+  children,
+}: {
+  span: SpanNode;
+  children?: ReactNode;
+}) {
   const name =
     String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
   const inputRaw = String(
@@ -423,6 +590,7 @@ function ToolCallBlock({ span }: { span: SpanNode }) {
           </span>
           <span className={tone.headerText}>{name}</span>
         </button>
+        <ToolMeta span={span} />
         <CopyButton text={inputRaw} />
       </div>
       <Collapsible open={open}>
@@ -445,8 +613,30 @@ function ToolCallBlock({ span }: { span: SpanNode }) {
               {params.kind === 'text' && params.text ? params.text : '—'}
             </pre>
           )}
+          {children !== undefined && children !== null && (
+            <div className={cn('border-t px-3 py-3', tone.border)}>
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                Subagent activity
+              </div>
+              {children}
+            </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
+    </div>
+  );
+}
+
+function ToolMeta({ span }: { span: SpanNode }) {
+  const ms = span.durationMs;
+  const bytesAttr = span.attributes['agent_trace.tool.output_bytes'];
+  const bytes =
+    typeof bytesAttr === 'number' && Number.isFinite(bytesAttr) ? bytesAttr : 0;
+  if (ms <= 0 && bytes <= 0) return null;
+  return (
+    <div className="ml-2 mr-1 flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
+      {ms > 0 && <span>{fmt.ms(ms)}</span>}
+      {bytes > 0 && <span>· {fmt.bytes(bytes)}</span>}
     </div>
   );
 }

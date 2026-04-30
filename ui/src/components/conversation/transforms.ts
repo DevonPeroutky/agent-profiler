@@ -227,6 +227,9 @@ export interface ConversationStep {
   text?: string;
   depth: number;
   requestId?: string;
+  usage?: InferenceUsage;
+  /** spanId of the emitting inference. See RawStep. */
+  inferenceSpanId?: string;
 }
 
 const TOOL_KIND_LABEL: Record<string, string> = {
@@ -307,25 +310,36 @@ function isStructuralSpan(span: SpanNode): boolean {
 function walkInferenceAndTool(
   span: SpanNode,
   depth: number,
-  emit: (step: 'inference' | 'tool', span: SpanNode, depth: number) => void,
+  emit: (
+    step: 'inference' | 'tool',
+    span: SpanNode,
+    depth: number,
+    parentInferenceSpanId: string | null,
+  ) => void,
+  parentInferenceSpanId: string | null = null,
 ): void {
   if (span.name === 'inference') {
-    emit('inference', span, depth);
+    emit('inference', span, depth, span.spanId);
     // Tool spans now nest under the inference whose tool_use block emitted
     // them. Descend so they still appear in the Steps list, indented one
-    // level deeper than the parent inference.
-    for (const child of span.children) walkInferenceAndTool(child, depth + 1, emit);
+    // level deeper than the parent inference. Children inherit *this*
+    // inference as their emitting parent — used downstream to look up the
+    // correct inferenceIdx, since flat-order proximity breaks when a sibling
+    // tool follows a subagent's nested inferences.
+    for (const child of span.children)
+      walkInferenceAndTool(child, depth + 1, emit, span.spanId);
     return;
   }
   if (!isStructuralSpan(span)) {
-    emit('tool', span, depth);
+    emit('tool', span, depth, parentInferenceSpanId);
   }
   // A `subagent:<type>` span is structural and not emitted itself, but its
   // children (the tools/inferences run by the subagent) belong one level
   // deeper so the UI can indent them under their parent Agent dispatch.
   const childDepth =
     span.attributes['agent_trace.event_type'] === 'subagent' ? depth + 1 : depth;
-  for (const child of span.children) walkInferenceAndTool(child, childDepth, emit);
+  for (const child of span.children)
+    walkInferenceAndTool(child, childDepth, emit, parentInferenceSpanId);
 }
 
 interface RawStep {
@@ -342,6 +356,16 @@ interface RawStep {
   subtitle: string;
   depth: number;
   requestId?: string;
+  usage?: InferenceUsage;
+  /**
+   * `spanId` of the inference that emitted this step. For inference steps it
+   * is the inference's own spanId; for tool/message/reasoning it is the
+   * parent inference (the one whose `tool_use` block dispatched the tool, or
+   * whose response carried the message/reasoning event). Used downstream to
+   * resolve the correct `inferenceIdx` regardless of flat-order interleaving
+   * with subagent contents.
+   */
+  inferenceSpanId?: string;
 }
 
 const TEXT_ENCODER = new TextEncoder();
@@ -414,11 +438,12 @@ function stepsForTurn(turn: Turn): RawStep[] {
       depth: 0,
     });
   }
-  walkInferenceAndTool(turn.root, 0, (kind, span, depth) => {
+  walkInferenceAndTool(turn.root, 0, (kind, span, depth, parentInferenceSpanId) => {
     if (kind === 'inference') {
       const requestId =
         String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
         undefined;
+      const usage = readInferenceUsage(span);
       out.push({
         kind: 'inference',
         timeMs: span.startMs,
@@ -431,6 +456,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
         subtitle: inferenceSubtitle(span),
         depth,
         requestId,
+        usage,
+        inferenceSpanId: span.spanId,
       });
       // Assistant text + reasoning live as events on the inference span.
       // Emit them as siblings of the inference's tool children (depth+1)
@@ -453,10 +480,10 @@ function stepsForTurn(turn: Turn): RawStep[] {
             subtitle: 'Assistant message',
             depth: depth + 1,
             requestId,
+            inferenceSpanId: span.spanId,
           });
         } else if (e.name === 'gen_ai.assistant.reasoning') {
           const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '').trim();
-          if (!text) continue;
           out.push({
             kind: 'reasoning',
             timeMs: e.timeMs ?? span.startMs,
@@ -465,15 +492,20 @@ function stepsForTurn(turn: Turn): RawStep[] {
             outputBytes: 0,
             outputTokens: 0,
             text,
-            label: text.replace(/\s+/g, ' ').trim(),
+            label: text ? text.replace(/\s+/g, ' ').trim() : 'Encrypted reasoning',
             subtitle: 'Reasoning',
             depth: depth + 1,
             requestId,
+            usage,
+            inferenceSpanId: span.spanId,
           });
         }
       }
     } else if (isPlanResponseSpan(span)) {
-      out.push(buildPlanResponseStep(span, depth));
+      out.push({
+        ...buildPlanResponseStep(span, depth),
+        inferenceSpanId: parentInferenceSpanId ?? undefined,
+      });
     } else {
       const name =
         String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
@@ -488,6 +520,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
         depth,
+        inferenceSpanId: parentInferenceSpanId ?? undefined,
       });
     }
   });
@@ -515,7 +548,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
 
 function stepsForUnattached(group: UnattachedGroup): RawStep[] {
   const out: RawStep[] = [];
-  walkInferenceAndTool(group.root, 0, (kind, span, depth) => {
+  walkInferenceAndTool(group.root, 0, (kind, span, depth, parentInferenceSpanId) => {
     if (kind === 'inference') {
       const requestId =
         String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
@@ -532,9 +565,13 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         subtitle: inferenceSubtitle(span),
         depth,
         requestId,
+        inferenceSpanId: span.spanId,
       });
     } else if (isPlanResponseSpan(span)) {
-      out.push(buildPlanResponseStep(span, depth));
+      out.push({
+        ...buildPlanResponseStep(span, depth),
+        inferenceSpanId: parentInferenceSpanId ?? undefined,
+      });
     } else {
       const name =
         String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
@@ -549,6 +586,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         label: toolStepLabel(span),
         subtitle: toolStepKindLabel(name),
         depth,
+        inferenceSpanId: parentInferenceSpanId ?? undefined,
       });
     }
   });
@@ -582,6 +620,8 @@ export function buildConversationSteps(
       text: raw.text,
       depth: raw.depth,
       requestId: raw.requestId,
+      usage: raw.usage,
+      inferenceSpanId: raw.inferenceSpanId,
     });
   };
   for (const turn of conversation.turns) {
@@ -597,12 +637,13 @@ export function buildConversationSteps(
 
 export type TrajectoryEntry =
   | { kind: 'message'; text: string; inferenceIdx: number }
-  | { kind: 'reasoning'; text: string; inferenceIdx: number }
+  | { kind: 'reasoning'; text: string; usage: InferenceUsage; inferenceIdx: number }
   | { kind: 'tool'; span: SpanNode; inferenceIdx: number };
 
 export interface TrajectoryInference {
   subagent: boolean;
   model: string | null;
+  tokens: StepTokens;
 }
 
 export interface TrajectoryStep {
@@ -635,7 +676,7 @@ function previewFromEntries(entries: TrajectoryEntry[]): string {
   for (const e of entries) {
     if (e.kind === 'reasoning') {
       const body = collapsePreview(e.text);
-      if (body) return 'thinking · ' + body;
+      return body ? 'thinking · ' + body : 'thinking · encrypted';
     }
   }
   const tools = entries.filter(
@@ -690,6 +731,12 @@ export function buildTrajectorySteps(
     const startMs = s.timeMs;
     let endMs = s.timeMs + s.durationMs;
     let inferenceIdx = -1;
+    // Map each inference's spanId to the index it occupies in `inferences[]`.
+    // This lets a tool/message/reasoning entry resolve its OWN emitting
+    // inference rather than picking up whatever inference was most recently
+    // seen in flat order — which was wrong whenever a sibling tool followed
+    // a subagent's nested inferences (e.g. parallel Agent dispatches).
+    const idxBySpanId = new Map<string, number>();
     let j = i;
     while (j < flat.length) {
       const c = flat[j];
@@ -701,22 +748,38 @@ export function buildTrajectorySteps(
         inferenceIdx++;
         const m = c.span?.attributes['gen_ai.request.model'];
         const model = typeof m === 'string' && m ? m : null;
-        inferences.push({ subagent: c.depth > 0, model });
+        inferences.push({ subagent: c.depth > 0, model, tokens: c.tokens });
+        if (c.inferenceSpanId) idxBySpanId.set(c.inferenceSpanId, inferenceIdx);
         if (firstModel === null && model) firstModel = model;
       } else {
-        const idx = inferenceIdx < 0 ? 0 : inferenceIdx;
+        // Resolution rules:
+        // - spanId set + found  → owning inference (the correct answer).
+        // - spanId absent       → no structural parent recorded (legacy
+        //   fallback messages on the turn root). Fall back to most-recent.
+        // - spanId set + missed → impossible by construction; if it ever
+        //   happens, leave inferenceIdx at -1 so the downstream lookup
+        //   `inferences[-1]` returns undefined rather than silently
+        //   misattributing to inference 0.
+        const resolvedIdx = c.inferenceSpanId
+          ? (idxBySpanId.get(c.inferenceSpanId) ?? -1)
+          : inferenceIdx;
         if (c.kind === 'assistant-message' && c.text) {
-          entries.push({ kind: 'message', text: c.text, inferenceIdx: idx });
-        } else if (c.kind === 'reasoning' && c.text) {
-          entries.push({ kind: 'reasoning', text: c.text, inferenceIdx: idx });
+          entries.push({ kind: 'message', text: c.text, inferenceIdx: resolvedIdx });
+        } else if (c.kind === 'reasoning') {
+          entries.push({
+            kind: 'reasoning',
+            text: c.text ?? '',
+            usage: c.usage ?? ZERO_USAGE,
+            inferenceIdx: resolvedIdx,
+          });
         } else if (c.kind === 'tool' && c.span) {
-          entries.push({ kind: 'tool', span: c.span, inferenceIdx: idx });
+          entries.push({ kind: 'tool', span: c.span, inferenceIdx: resolvedIdx });
         }
       }
       j++;
     }
     if (inferences.length === 0 && entries.length > 0) {
-      inferences.push({ subagent: false, model: null });
+      inferences.push({ subagent: false, model: null, tokens: ZERO_TOKENS });
     }
     out.push({
       id: s.id,
@@ -735,10 +798,34 @@ export function buildTrajectorySteps(
   return out;
 }
 
+export interface InferenceUsage {
+  inputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  outputTokens: number;
+}
+
 export type TurnTimelineEntry =
   | { kind: 'tool'; timeMs: number; span: SpanNode }
-  | { kind: 'message'; timeMs: number; text: string }
+  | { kind: 'message'; timeMs: number; text: string; usage: InferenceUsage }
   | { kind: 'reasoning'; timeMs: number; text: string };
+
+const ZERO_USAGE: InferenceUsage = {
+  inputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  outputTokens: 0,
+};
+
+function readInferenceUsage(span: SpanNode): InferenceUsage {
+  const a = span.attributes;
+  return {
+    inputTokens: Number(a?.['gen_ai.usage.input_tokens'] ?? 0),
+    cacheReadTokens: Number(a?.['gen_ai.usage.cache_read_tokens'] ?? 0),
+    cacheCreationTokens: Number(a?.['gen_ai.usage.cache_creation_tokens'] ?? 0),
+    outputTokens: Number(a?.['gen_ai.usage.output_tokens'] ?? 0),
+  };
+}
 
 /**
  * Build a chronological list of everything that happened inside a turn —
@@ -748,41 +835,73 @@ export type TurnTimelineEntry =
  * The `end_turn` message also renders as the always-visible bookend on the
  * turn row, but we include it here too so the expanded event list is a
  * faithful chronological record.
+ *
+ * Each `message` entry is stamped with the four token counts of the
+ * inference span that emitted it, so the UI can surface per-inference cost
+ * alongside the text. Messages emitted directly on the turn root (legacy
+ * fallback, no inference parent) report zero usage.
  */
 export function buildTurnTimeline(turn: SpanNode): TurnTimelineEntry[] {
-  // Tool spans now nest under their emitting inference. Walk turn children
-  // and flatten any inference's tool children up to the timeline level so
-  // the chat shape preserves the previous "tool calls inline with messages"
-  // layout. Slash turns and orphan reparenting fallbacks still surface
-  // tool spans as direct turn children, so we keep them too.
-  const toolEntries: TurnTimelineEntry[] = [];
-  for (const child of turn.children) {
-    if (child.name === 'inference') {
-      for (const grand of child.children) {
-        toolEntries.push({ kind: 'tool', timeMs: grand.startMs, span: grand });
+  const entries: TurnTimelineEntry[] = [];
+
+  // Legacy fallback: assistant-content events on the turn root itself have
+  // no associated inference span, so usage is unknown (zero).
+  for (const e of turn.events) {
+    if (e.name === 'gen_ai.assistant.message') {
+      const text = messageTextOf(e);
+      if (text) {
+        entries.push({
+          kind: 'message',
+          timeMs: e.timeMs ?? turn.startMs,
+          text,
+          usage: ZERO_USAGE,
+        });
       }
-    } else {
-      toolEntries.push({ kind: 'tool', timeMs: child.startMs, span: child });
+    } else if (e.name === 'gen_ai.assistant.reasoning') {
+      const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '');
+      entries.push({
+        kind: 'reasoning',
+        timeMs: e.timeMs ?? turn.startMs,
+        text,
+      });
     }
   }
-  const entries: TurnTimelineEntry[] = [
-    ...toolEntries,
-    ...collectAssistantContentEvents(turn).flatMap((e): TurnTimelineEntry[] => {
-      if (e.name === 'gen_ai.assistant.message') {
-        const text = messageTextOf(e);
-        return text
-          ? [{ kind: 'message', timeMs: e.timeMs ?? turn.startMs, text }]
-          : [];
+
+  // Walk turn children. Tool spans nest under their emitting inference; we
+  // flatten them up to the timeline level so the chat shape preserves the
+  // previous "tool calls inline with messages" layout. Slash turns and orphan
+  // reparenting fallbacks still surface tool spans as direct turn children.
+  for (const child of turn.children) {
+    if (child.name === 'inference') {
+      const usage = readInferenceUsage(child);
+      for (const grand of child.children) {
+        entries.push({ kind: 'tool', timeMs: grand.startMs, span: grand });
       }
-      if (e.name === 'gen_ai.assistant.reasoning') {
-        const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '');
-        return text
-          ? [{ kind: 'reasoning', timeMs: e.timeMs ?? turn.startMs, text }]
-          : [];
+      for (const e of child.events) {
+        if (e.name === 'gen_ai.assistant.message') {
+          const text = messageTextOf(e);
+          if (text) {
+            entries.push({
+              kind: 'message',
+              timeMs: e.timeMs ?? turn.startMs,
+              text,
+              usage,
+            });
+          }
+        } else if (e.name === 'gen_ai.assistant.reasoning') {
+          const text = String(e.attributes?.['gen_ai.reasoning.content'] ?? '');
+          entries.push({
+            kind: 'reasoning',
+            timeMs: e.timeMs ?? turn.startMs,
+            text,
+          });
+        }
       }
-      return [];
-    }),
-  ];
+    } else {
+      entries.push({ kind: 'tool', timeMs: child.startMs, span: child });
+    }
+  }
+
   entries.sort((a, b) => a.timeMs - b.timeMs);
   return entries;
 }

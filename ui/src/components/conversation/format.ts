@@ -17,4 +17,10 @@ export const fmt = {
     const s = Math.floor((ms % 60_000) / 1000);
     return m + 'm ' + String(s).padStart(2, '0') + 's';
   },
+  bytes(b: number): string {
+    if (!Number.isFinite(b) || b <= 0) return '0B';
+    if (b < 1024) return b + 'B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(b < 10 * 1024 ? 1 : 0) + 'KB';
+    return (b / (1024 * 1024)).toFixed(b < 10 * 1024 * 1024 ? 1 : 0) + 'MB';
+  },
 };

@@ -4,18 +4,21 @@ import type { SpanNode } from '@/types';
 import { cn } from '@/lib/utils';
 import { MessageBlock } from './MessageBlock';
 import { ToolCallsBlock } from './ToolCallsBlock';
-import { buildTurnTimeline, type TurnTimelineEntry } from './transforms';
+import {
+  buildTurnTimeline,
+  type InferenceUsage,
+  type TurnTimelineEntry,
+} from './transforms';
 
 interface Props {
   turn: SpanNode;
   selectedSpanId: string | null;
   onSelectSpan: (span: SpanNode) => void;
-  showReasoning: boolean;
 }
 
 type Segment =
   | { kind: 'tools'; spans: SpanNode[] }
-  | { kind: 'message'; text: string }
+  | { kind: 'message'; text: string; usage: InferenceUsage }
   | { kind: 'reasoning'; text: string };
 
 function groupSegments(entries: TurnTimelineEntry[]): Segment[] {
@@ -26,7 +29,7 @@ function groupSegments(entries: TurnTimelineEntry[]): Segment[] {
       if (last && last.kind === 'tools') last.spans.push(e.span);
       else out.push({ kind: 'tools', spans: [e.span] });
     } else if (e.kind === 'message') {
-      out.push({ kind: 'message', text: e.text });
+      out.push({ kind: 'message', text: e.text, usage: e.usage });
     } else {
       out.push({ kind: 'reasoning', text: e.text });
     }
@@ -36,7 +39,7 @@ function groupSegments(entries: TurnTimelineEntry[]): Segment[] {
 
 function ReasoningBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
-  const preview = text.split('\n')[0].slice(0, 120);
+  const preview = text ? text.split('\n')[0].slice(0, 120) : 'encrypted';
   return (
     <div className="px-4 py-2">
       <button
@@ -55,11 +58,16 @@ function ReasoningBlock({ text }: { text: string }) {
           <span className="truncate opacity-70">· {preview}</span>
         )}
       </button>
-      {open && (
-        <pre className="mt-2 whitespace-pre-wrap break-words rounded bg-muted/40 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-          {text}
-        </pre>
-      )}
+      {open &&
+        (text ? (
+          <pre className="mt-2 whitespace-pre-wrap break-words rounded bg-muted/40 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+            {text}
+          </pre>
+        ) : (
+          <p className="mt-2 rounded bg-muted/40 px-3 py-2 font-mono text-[11px] italic text-muted-foreground/70">
+            encrypted
+          </p>
+        ))}
     </div>
   );
 }
@@ -68,15 +76,9 @@ export function TurnTimeline({
   turn,
   selectedSpanId,
   onSelectSpan,
-  showReasoning,
 }: Props) {
   const entries = useMemo(() => buildTurnTimeline(turn), [turn]);
-  const segments = useMemo(() => {
-    const grouped = groupSegments(entries);
-    return showReasoning
-      ? grouped
-      : grouped.filter((s) => s.kind !== 'reasoning');
-  }, [entries, showReasoning]);
+  const segments = useMemo(() => groupSegments(entries), [entries]);
 
   if (segments.length === 0) {
     return (
@@ -100,7 +102,13 @@ export function TurnTimeline({
               />
             );
           case 'message':
-            return <MessageBlock key={`msg-${i}`} text={seg.text} />;
+            return (
+              <MessageBlock
+                key={`msg-${i}`}
+                text={seg.text}
+                usage={seg.usage}
+              />
+            );
           case 'reasoning':
             return <ReasoningBlock key={`think-${i}`} text={seg.text} />;
         }

@@ -147,7 +147,6 @@ export function TurnMessages({
               turn={entry.turnSpan}
               selectedSpanId={selectedSpanId}
               onSelectSpan={onSelectSpan}
-              showReasoning={showMeta}
             />
           </ChatMessage>
         );
