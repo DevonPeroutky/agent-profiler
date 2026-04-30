@@ -283,6 +283,277 @@ test('catalog-drift: every observed attachment.type is classified', { skip: fals
 // ──────────────────────────────────────────────────────────────────────────
 // Acceptance #5: qualitative — the user can explain a context spike.
 
+// ──────────────────────────────────────────────────────────────────────────
+// ExitPlanMode adjudication: the structural plan-shape on `toolUseResult`
+// (`{ plan, filePath }`) is the deterministic approval signal. The transformer
+// surfaces it as `agent_trace.tool.{is_plan_response, plan_approved,
+// plan_file_path}` on the existing tool span — the UI routes on these.
+
+/** @param {any} node */
+const findToolByName = (node, toolName) => {
+  if (node.attributes?.['agent_trace.tool.name'] === toolName) return node;
+  for (const c of node.children) {
+    const hit = findToolByName(c, toolName);
+    if (hit) return hit;
+  }
+  return null;
+};
+
+test('ExitPlanMode tool span carries plan-response attributes when approved', () => {
+  const planText = '# A plan\n\nDo the thing.';
+  const planFilePath = '/Users/x/.claude/plans/a-plan.md';
+  const useId = 'toolu_planA';
+  const records = [
+    {
+      type: 'user',
+      uuid: 'u1',
+      parentUuid: null,
+      timestamp: '2026-04-23T12:00:00.000Z',
+      message: { role: 'user', content: 'plan it' },
+    },
+    {
+      type: 'attachment',
+      uuid: 'u2',
+      parentUuid: 'u1',
+      timestamp: '2026-04-23T12:00:01.000Z',
+      attachment: { type: 'plan_mode', reminderType: 'full', planExists: false },
+    },
+    {
+      type: 'assistant',
+      uuid: 'a1',
+      parentUuid: 'u2',
+      timestamp: '2026-04-23T12:00:02.000Z',
+      requestId: 'req_1',
+      message: {
+        id: 'msg_1',
+        role: 'assistant',
+        model: 'claude-test',
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+        content: [
+          {
+            type: 'tool_use',
+            id: useId,
+            name: 'ExitPlanMode',
+            input: { plan: planText, planFilePath },
+          },
+        ],
+      },
+    },
+    {
+      type: 'user',
+      uuid: 'u3',
+      parentUuid: 'a1',
+      timestamp: '2026-04-23T12:00:03.000Z',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: useId,
+            content: 'User has approved your plan.\n## Approved Plan:\n' + planText,
+          },
+        ],
+      },
+      toolUseResult: { plan: planText, isAgent: false, filePath: planFilePath },
+    },
+  ];
+  const [turn] = toTraces('plan-session', bundleOf(records));
+  assert.equal(turn.kind, 'turn');
+  const span = findToolByName(turn.root, 'ExitPlanMode');
+  assert.ok(span, 'ExitPlanMode span emitted');
+  assert.equal(span.attributes['agent_trace.tool.is_plan_response'], true);
+  assert.equal(span.attributes['agent_trace.tool.plan_approved'], true);
+  assert.equal(span.attributes['agent_trace.tool.plan_file_path'], planFilePath);
+});
+
+test('ExitPlanMode without plan-shaped toolUseResult is marked unapproved', () => {
+  const planText = '# Another plan';
+  const planFilePath = '/Users/x/.claude/plans/another.md';
+  const useId = 'toolu_planB';
+  const records = [
+    {
+      type: 'user',
+      uuid: 'u1',
+      parentUuid: null,
+      timestamp: '2026-04-23T12:00:00.000Z',
+      message: { role: 'user', content: 'plan' },
+    },
+    {
+      type: 'assistant',
+      uuid: 'a1',
+      parentUuid: 'u1',
+      timestamp: '2026-04-23T12:00:02.000Z',
+      requestId: 'req_1',
+      message: {
+        id: 'msg_1',
+        role: 'assistant',
+        model: 'claude-test',
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+        content: [
+          {
+            type: 'tool_use',
+            id: useId,
+            name: 'ExitPlanMode',
+            input: { plan: planText, planFilePath },
+          },
+        ],
+      },
+    },
+    {
+      type: 'user',
+      uuid: 'u2',
+      parentUuid: 'a1',
+      timestamp: '2026-04-23T12:00:03.000Z',
+      message: {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: useId,
+            content: 'Some non-approval reply',
+          },
+        ],
+      },
+    },
+  ];
+  const [turn] = toTraces('plan-session-2', bundleOf(records));
+  const span = findToolByName(turn.root, 'ExitPlanMode');
+  assert.ok(span);
+  assert.equal(span.attributes['agent_trace.tool.is_plan_response'], true);
+  assert.equal(span.attributes['agent_trace.tool.plan_approved'], false);
+  // input.planFilePath is still surfaced as a fallback when toolUseResult shape is absent
+  assert.equal(span.attributes['agent_trace.tool.plan_file_path'], planFilePath);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Transcript row-index plumbing: the Debug tab numbers JSONL records #0, #1,
+// … by array index after parsing. The transformer surfaces the same number
+// on emitted spans so the Steps view can cross-reference. Alignment is by
+// construction — `_rowIndex` is stamped at parse time as `out.length`.
+
+test('readJsonl _rowIndex matches array position 1:1 (Debug tab alignment)', async () => {
+  const tmp = path.join(os.tmpdir(), `row-idx-${Date.now()}.jsonl`);
+  fs.writeFileSync(
+    tmp,
+    [
+      '{"type":"a","i":0}',
+      'this line is not json',
+      '{"type":"b","i":2}',
+      '{"type":"c","i":3}',
+      '',
+    ].join('\n'),
+  );
+  try {
+    const { readJsonl } = await import(
+      `../lib/traces/transcripts.js?row-idx-${Date.now()}`
+    );
+  } catch {}
+  // The exported surface only includes readTranscript; readJsonl is internal.
+  // Test it via readTranscript on a synthetic SessionFile.
+  const subDir = path.join(os.tmpdir(), `row-idx-sub-${Date.now()}`);
+  fs.mkdirSync(subDir, { recursive: true });
+  const { readTranscript } = await import('../lib/traces/transcripts.js');
+  const bundle = readTranscript({
+    sessionId: 'x',
+    mainPath: tmp,
+    subagentsDir: subDir,
+  });
+  fs.unlinkSync(tmp);
+  fs.rmdirSync(subDir);
+  // Three records survived (one unparseable line was silently skipped).
+  assert.equal(bundle.main.length, 3);
+  bundle.main.forEach((rec, i) => {
+    assert.equal(rec._rowIndex, i, `_rowIndex matches array index ${i}`);
+  });
+});
+
+test('tool span row_index equals position of its tool_use record in the transcript', () => {
+  const useId = 'toolu_x';
+  const records = [
+    {
+      _rowIndex: 0,
+      type: 'user',
+      uuid: 'u1',
+      parentUuid: null,
+      timestamp: '2026-04-23T12:00:00.000Z',
+      message: { role: 'user', content: 'go' },
+    },
+    {
+      _rowIndex: 1,
+      type: 'assistant',
+      uuid: 'a1',
+      parentUuid: 'u1',
+      timestamp: '2026-04-23T12:00:01.000Z',
+      requestId: 'req_1',
+      message: {
+        id: 'msg_1',
+        role: 'assistant',
+        model: 'm',
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+        content: [{ type: 'tool_use', id: useId, name: 'Read', input: { file: 'x' } }],
+      },
+    },
+    {
+      _rowIndex: 2,
+      type: 'user',
+      uuid: 'u2',
+      parentUuid: 'a1',
+      timestamp: '2026-04-23T12:00:02.000Z',
+      message: {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: useId, content: 'ok' }],
+      },
+    },
+  ];
+  const [turn] = toTraces('row-idx-session', bundleOf(records));
+  /** @param {any} node */
+  const findTool = (node) => {
+    if (node.attributes?.['agent_trace.tool.name'] === 'Read') return node;
+    for (const c of node.children) {
+      const hit = findTool(c);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const span = findTool(turn.root);
+  assert.ok(span, 'Read tool span emitted');
+  // tool_use is at row 1; tool_result is at row 2.
+  assert.equal(span.attributes['agent_trace.transcript.row_index'], 1);
+  assert.equal(span.attributes['agent_trace.transcript.row_index_end'], 2);
+  // Inference span anchors at the assistant row.
+  /** @param {any} node */
+  const findInf = (node) => {
+    if (node.name === 'inference') return node;
+    for (const c of node.children) {
+      const hit = findInf(c);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const inf = findInf(turn.root);
+  assert.equal(inf.attributes['agent_trace.transcript.row_index'], 1);
+  // Turn root anchors at the first user record.
+  assert.equal(turn.root.attributes['agent_trace.transcript.row_index'], 0);
+});
+
 test('user can identify a nested_memory-driven spike from turn fields alone', () => {
   // Simulates the 8.9k spike scenario: a single nested_memory inclusion
   // dwarfs all other attachments in the turn.

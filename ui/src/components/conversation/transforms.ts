@@ -208,11 +208,14 @@ const ZERO_TOKENS: StepTokens = {
   output: 0,
 };
 
+export type ConversationStepVariant = 'plan-response';
+
 export interface ConversationStep {
   id: string;
   traceId: string;
   turnNumber: number | null;
   kind: ConversationStepKind;
+  variant?: ConversationStepVariant;
   label: string;
   subtitle: string;
   timeMs: number;
@@ -327,6 +330,7 @@ function walkInferenceAndTool(
 
 interface RawStep {
   kind: ConversationStepKind;
+  variant?: ConversationStepVariant;
   timeMs: number;
   durationMs: number;
   tokens: StepTokens;
@@ -354,6 +358,38 @@ function toolOutputBytes(span: SpanNode): number {
 function toolOutputTokens(span: SpanNode): number {
   const v = span.attributes['agent_trace.tool.output_tokens'];
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function isPlanResponseSpan(span: SpanNode): boolean {
+  return span.attributes['agent_trace.tool.is_plan_response'] === true;
+}
+
+function planResponseLabel(span: SpanNode): string {
+  const approved = span.attributes['agent_trace.tool.plan_approved'] === true;
+  const verb = approved ? 'Approved' : 'Responded to';
+  const summary = span.attributes['agent_trace.tool.input_summary'];
+  if (typeof summary === 'string' && summary) {
+    const firstLine = summary.split(/\r?\n/).find((l) => l.trim()) ?? '';
+    const title = firstLine.replace(/^#+\s*/, '').trim();
+    if (title) return `${verb} plan: ${title}`;
+  }
+  return `${verb} plan`;
+}
+
+function buildPlanResponseStep(span: SpanNode, depth: number): RawStep {
+  return {
+    kind: 'tool',
+    variant: 'plan-response',
+    timeMs: span.startMs,
+    durationMs: span.durationMs,
+    tokens: ZERO_TOKENS,
+    outputBytes: toolOutputBytes(span),
+    outputTokens: toolOutputTokens(span),
+    span,
+    label: planResponseLabel(span),
+    subtitle: 'Plan response',
+    depth,
+  };
 }
 
 function stepsForTurn(turn: Turn): RawStep[] {
@@ -436,6 +472,8 @@ function stepsForTurn(turn: Turn): RawStep[] {
           });
         }
       }
+    } else if (isPlanResponseSpan(span)) {
+      out.push(buildPlanResponseStep(span, depth));
     } else {
       const name =
         String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
@@ -495,6 +533,8 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         depth,
         requestId,
       });
+    } else if (isPlanResponseSpan(span)) {
+      out.push(buildPlanResponseStep(span, depth));
     } else {
       const name =
         String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
@@ -530,6 +570,7 @@ export function buildConversationSteps(
       traceId,
       turnNumber,
       kind: raw.kind,
+      variant: raw.variant,
       label: raw.label,
       subtitle: raw.subtitle,
       timeMs: raw.timeMs,
@@ -554,9 +595,15 @@ export function buildConversationSteps(
   return steps;
 }
 
-export type TrajectorySegment =
-  | { kind: 'message'; text: string }
-  | { kind: 'reasoning'; text: string };
+export type TrajectoryEntry =
+  | { kind: 'message'; text: string; inferenceIdx: number }
+  | { kind: 'reasoning'; text: string; inferenceIdx: number }
+  | { kind: 'tool'; span: SpanNode; inferenceIdx: number };
+
+export interface TrajectoryInference {
+  subagent: boolean;
+  model: string | null;
+}
 
 export interface TrajectoryStep {
   id: string;
@@ -564,9 +611,9 @@ export interface TrajectoryStep {
   turnNumber: number | null;
   role: 'user' | 'agent';
   model: string | null;
-  segments: TrajectorySegment[];
+  entries: TrajectoryEntry[];
+  inferences: TrajectoryInference[];
   preview: string;
-  toolCalls: SpanNode[];
   startMs: number;
   durationMs: number;
 }
@@ -581,38 +628,34 @@ function collapsePreview(s: string): string {
     : flat.slice(0, TRAJECTORY_PREVIEW_MAX - 1) + '…';
 }
 
-function previewFromToolCalls(toolCalls: SpanNode[]): string {
-  if (toolCalls.length === 0) return '';
-  const names = toolCalls.map(
-    (span) =>
-      String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool',
+function previewFromEntries(entries: TrajectoryEntry[]): string {
+  for (const e of entries) {
+    if (e.kind === 'message') return collapsePreview(e.text);
+  }
+  for (const e of entries) {
+    if (e.kind === 'reasoning') {
+      const body = collapsePreview(e.text);
+      if (body) return 'thinking · ' + body;
+    }
+  }
+  const tools = entries.filter(
+    (e): e is Extract<TrajectoryEntry, { kind: 'tool' }> => e.kind === 'tool',
   );
-  const head = names[0];
-  const rest = names.length - 1;
+  if (tools.length === 0) return '';
+  const head =
+    String(tools[0].span.attributes['agent_trace.tool.name'] ?? tools[0].span.name) ||
+    'tool';
+  const rest = tools.length - 1;
   const label = rest > 0 ? `${head} +${rest} more` : head;
   return collapsePreview(`called ${label}`);
 }
 
-function previewFromSegments(
-  segments: TrajectorySegment[],
-  toolCalls: SpanNode[],
-): string {
-  const firstMessage = segments.find((s) => s.kind === 'message');
-  if (firstMessage) return collapsePreview(firstMessage.text);
-  const firstReasoning = segments.find((s) => s.kind === 'reasoning');
-  if (firstReasoning) {
-    const body = collapsePreview(firstReasoning.text);
-    if (body) return 'thinking · ' + body;
-  }
-  return previewFromToolCalls(toolCalls);
-}
-
 /**
- * One trajectory row per user prompt or inference. An inference row absorbs
- * the assistant-message text, reasoning, and direct tool calls that
- * `buildConversationSteps` emits as children at `depth + 1` underneath it.
- * Subagent inferences become their own rows; their tool calls hang under
- * them rather than under the parent inference.
+ * One trajectory row per user prompt, and one row per turn for the agent
+ * that bundles every inference, assistant message, reasoning block, and
+ * tool call (including subagent activity) the agent produced inside that
+ * turn. Expanded, the row shows everything in chronological order; the
+ * collapsed row surfaces the first message-or-tool preview.
  */
 export function buildTrajectorySteps(
   conversation: ConversationSummary,
@@ -630,51 +673,64 @@ export function buildTrajectorySteps(
         turnNumber: s.turnNumber,
         role: 'user',
         model: null,
-        segments: text ? [{ kind: 'message', text }] : [],
+        entries: text ? [{ kind: 'message', text, inferenceIdx: 0 }] : [],
+        inferences: [],
         preview: collapsePreview(text),
-        toolCalls: [],
         startMs: s.timeMs,
         durationMs: 0,
       });
       i++;
       continue;
     }
-    if (s.kind === 'inference') {
-      const baseDepth = s.depth;
-      const segments: TrajectorySegment[] = [];
-      const toolCalls: SpanNode[] = [];
-      let j = i + 1;
-      while (j < flat.length) {
-        const c = flat[j];
-        if (c.traceId !== s.traceId) break;
-        if (c.kind === 'inference' || c.kind === 'user-prompt') break;
-        if (c.depth <= baseDepth) break;
+    const traceId = s.traceId;
+    const turnNumber = s.turnNumber;
+    const entries: TrajectoryEntry[] = [];
+    const inferences: TrajectoryInference[] = [];
+    let firstModel: string | null = null;
+    const startMs = s.timeMs;
+    let endMs = s.timeMs + s.durationMs;
+    let inferenceIdx = -1;
+    let j = i;
+    while (j < flat.length) {
+      const c = flat[j];
+      if (c.kind === 'user-prompt') break;
+      if (c.traceId !== traceId) break;
+      if (c.turnNumber !== turnNumber) break;
+      endMs = Math.max(endMs, c.timeMs + c.durationMs);
+      if (c.kind === 'inference') {
+        inferenceIdx++;
+        const m = c.span?.attributes['gen_ai.request.model'];
+        const model = typeof m === 'string' && m ? m : null;
+        inferences.push({ subagent: c.depth > 0, model });
+        if (firstModel === null && model) firstModel = model;
+      } else {
+        const idx = inferenceIdx < 0 ? 0 : inferenceIdx;
         if (c.kind === 'assistant-message' && c.text) {
-          segments.push({ kind: 'message', text: c.text });
+          entries.push({ kind: 'message', text: c.text, inferenceIdx: idx });
         } else if (c.kind === 'reasoning' && c.text) {
-          segments.push({ kind: 'reasoning', text: c.text });
-        } else if (c.kind === 'tool' && c.span && c.depth === baseDepth + 1) {
-          toolCalls.push(c.span);
+          entries.push({ kind: 'reasoning', text: c.text, inferenceIdx: idx });
+        } else if (c.kind === 'tool' && c.span) {
+          entries.push({ kind: 'tool', span: c.span, inferenceIdx: idx });
         }
-        j++;
       }
-      const modelAttr = s.span?.attributes['gen_ai.request.model'];
-      out.push({
-        id: s.id,
-        index: out.length + 1,
-        turnNumber: s.turnNumber,
-        role: 'agent',
-        model: typeof modelAttr === 'string' && modelAttr ? modelAttr : null,
-        segments,
-        preview: previewFromSegments(segments, toolCalls),
-        toolCalls,
-        startMs: s.timeMs,
-        durationMs: s.durationMs,
-      });
-      i = j;
-      continue;
+      j++;
     }
-    i++;
+    if (inferences.length === 0 && entries.length > 0) {
+      inferences.push({ subagent: false, model: null });
+    }
+    out.push({
+      id: s.id,
+      index: out.length + 1,
+      turnNumber,
+      role: 'agent',
+      model: firstModel,
+      entries,
+      inferences,
+      preview: previewFromEntries(entries),
+      startMs,
+      durationMs: Math.max(0, endMs - startMs),
+    });
+    i = j > i ? j : i + 1;
   }
   return out;
 }

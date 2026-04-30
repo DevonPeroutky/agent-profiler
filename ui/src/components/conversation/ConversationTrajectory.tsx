@@ -34,7 +34,6 @@ export function ConversationTrajectory({ conversation }: Props) {
     );
   }
 
-  const baseStartMs = steps[0].startMs;
   const maxDuration = steps.reduce((m, s) => Math.max(m, s.durationMs), 0);
 
   const toggle = (id: string) =>
@@ -54,7 +53,6 @@ export function ConversationTrajectory({ conversation }: Props) {
           <TrajectoryRow
             key={s.id}
             step={s}
-            baseStartMs={baseStartMs}
             isOpen={expanded.has(s.id)}
             onToggle={() => toggle(s.id)}
           />
@@ -113,7 +111,6 @@ function StepBar({
 
 interface RowProps {
   step: TrajectoryStep;
-  baseStartMs: number;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -128,63 +125,53 @@ const claudeAvatarIcon = (
   />
 );
 
-function TrajectoryRow({ step, baseStartMs, isOpen, onToggle }: RowProps) {
-  const cumulativeMs = Math.max(0, step.startMs - baseStartMs);
+function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
   const isUser = step.role === 'user';
-  return (
-    <div className="border-b border-border last:border-b-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        className={cn(
-          'group grid w-full grid-cols-[40px_28px_auto_1fr_auto_auto_18px] items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-muted/60',
-          isOpen && 'bg-muted/40',
-        )}
-      >
-        <span className="font-mono text-[11px] text-muted-foreground/70">
-          #{step.index}
+  const innerCells = (
+    <>
+      <span className="font-mono text-[11px] text-muted-foreground/70">
+        #{step.index}
+      </span>
+      {isUser ? (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          {userAvatarIcon}
         </span>
-        {isUser ? (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            {userAvatarIcon}
+      ) : (
+        <Avatar className="h-6 w-6 bg-background">
+          <AvatarFallback className="bg-background">
+            {claudeAvatarIcon}
+          </AvatarFallback>
+        </Avatar>
+      )}
+      <span className="flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-[10px] uppercase tracking-[0.08em]',
+            isUser
+              ? 'border-foreground/30 text-foreground'
+              : 'border-emerald-500/40 text-emerald-500',
+          )}
+        >
+          {isUser ? 'user' : 'agent'}
+        </Badge>
+        {step.model && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {step.model}
           </span>
-        ) : (
-          <Avatar className="h-6 w-6 bg-background">
-            <AvatarFallback className="bg-background">
-              {claudeAvatarIcon}
-            </AvatarFallback>
-          </Avatar>
         )}
-        <span className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              'text-[10px] uppercase tracking-[0.08em]',
-              isUser
-                ? 'border-foreground/30 text-foreground'
-                : 'border-emerald-500/40 text-emerald-500',
-            )}
-          >
-            {isUser ? 'user' : 'agent'}
-          </Badge>
-          {step.model && (
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {step.model}
-            </span>
-          )}
-        </span>
-        <span className="min-w-0 truncate text-[13px] text-foreground">
-          {step.preview || (
-            <span className="italic text-muted-foreground">(no message)</span>
-          )}
-        </span>
-        <span className="font-mono text-[11px] text-muted-foreground/80">
-          {step.durationMs > 0 ? '+' + fmt.ms(step.durationMs) : ''}
-        </span>
-        <span className="min-w-[48px] text-right font-mono text-[11px] text-muted-foreground/70">
-          {fmt.ms(cumulativeMs) || '0s'}
-        </span>
+      </span>
+      <span className="min-w-0 truncate text-[13px] text-foreground">
+        {step.preview || (
+          <span className="italic text-muted-foreground">(no message)</span>
+        )}
+      </span>
+      <span className="min-w-[48px] text-right font-mono text-[11px] text-muted-foreground/80">
+        {step.durationMs > 0 ? fmt.ms(step.durationMs) : ''}
+      </span>
+      {isUser ? (
+        <span aria-hidden="true" className="h-3.5 w-3.5" />
+      ) : (
         <ChevronDown
           aria-hidden="true"
           className={cn(
@@ -192,97 +179,276 @@ function TrajectoryRow({ step, baseStartMs, isOpen, onToggle }: RowProps) {
             !isOpen && '-rotate-90',
           )}
         />
-      </button>
-      <Collapsible open={isOpen}>
-        <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
-          <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3">
-            {step.segments.map((seg, idx) =>
-              seg.kind === 'message' ? (
-                <pre
-                  key={idx}
-                  className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground"
-                >
-                  {seg.text}
-                </pre>
-              ) : (
-                <ReasoningMarker key={idx} />
-              ),
+      )}
+    </>
+  );
+  return (
+    <div className="border-b border-border last:border-b-0">
+      {isUser ? (
+        <div className="grid w-full grid-cols-[40px_28px_auto_1fr_auto_18px] items-center gap-3 px-3.5 py-2.5">
+          {innerCells}
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={isOpen}
+            className={cn(
+              'group grid w-full grid-cols-[40px_28px_auto_1fr_auto_18px] items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-muted/60',
+              isOpen && 'bg-muted/40',
             )}
-            {step.toolCalls.length > 0 && (
-              <Section title="Tool Calls">
-                <div className="space-y-2">
-                  {step.toolCalls.map((span) => (
-                    <ToolCallBlock key={span.spanId} span={span} />
-                  ))}
-                </div>
-              </Section>
-            )}
-            {step.segments.length === 0 && step.toolCalls.length === 0 && (
-              <p className="text-[12px] italic text-muted-foreground">
-                (no content)
-              </p>
-            )}
+          >
+            {innerCells}
+          </button>
+          <Collapsible open={isOpen}>
+            <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
+              <div className="border-t border-border bg-muted/20 px-4 py-3">
+                <ExpandedEntries step={step} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExpandedEntries({ step }: { step: TrajectoryStep }) {
+  if (step.entries.length === 0) {
+    return (
+      <p className="text-[12px] italic text-muted-foreground">(no content)</p>
+    );
+  }
+  return (
+    <div className="space-y-2.5">
+      {step.entries.map((entry, i) => {
+        const subagent =
+          step.inferences[entry.inferenceIdx]?.subagent ?? false;
+        const wrap = subagent ? 'border-l-2 border-violet-500/40 pl-3' : '';
+        return (
+          <div key={i} className={wrap}>
+            {entry.kind === 'message' && <MessageBlock text={entry.text} />}
+            {entry.kind === 'reasoning' && <ThinkingBlock text={entry.text} />}
+            {entry.kind === 'tool' && <ToolCallBlock span={entry.span} />}
           </div>
-        </CollapsibleContent>
-      </Collapsible>
+        );
+      })}
     </div>
   );
 }
 
-function ReasoningMarker() {
+function MessageBlock({ text }: { text: string }) {
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-muted-foreground/40 bg-muted/40 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-      <Lock className="h-3 w-3" aria-hidden="true" />
-      <span>thinking</span>
-      <span className="text-muted-foreground/60">· encrypted</span>
-    </div>
+    <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground">
+      {text}
+    </pre>
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function ThinkingBlock({ text }: { text: string }) {
   return (
-    <div className="space-y-1.5">
-      <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-        {title}
+    <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2">
+      <div className="mb-1 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+        <Lock className="h-3 w-3" aria-hidden="true" />
+        <span>thinking</span>
       </div>
-      {children}
+      {text ? (
+        <pre className="whitespace-pre-wrap break-words font-sans text-[12.5px] leading-relaxed text-muted-foreground">
+          {text}
+        </pre>
+      ) : (
+        <span className="font-mono text-[11px] text-muted-foreground/60">
+          encrypted
+        </span>
+      )}
     </div>
   );
+}
+
+interface ToolTone {
+  border: string;
+  headerBg: string;
+  headerText: string;
+  badge: string;
+  glyph: string;
+}
+
+function toolTone(name: string): ToolTone {
+  if (name.startsWith('mcp__')) {
+    return {
+      border: 'border-cyan-500/30',
+      headerBg: 'bg-cyan-500/[0.06]',
+      headerText: 'text-cyan-500',
+      badge: 'bg-cyan-500/15 text-cyan-500',
+      glyph: 'M',
+    };
+  }
+  switch (name) {
+    case 'Bash':
+      return {
+        border: 'border-emerald-500/30',
+        headerBg: 'bg-emerald-500/[0.06]',
+        headerText: 'text-emerald-500',
+        badge: 'bg-emerald-500/15 text-emerald-500',
+        glyph: '$',
+      };
+    case 'Read':
+      return {
+        border: 'border-sky-500/30',
+        headerBg: 'bg-sky-500/[0.06]',
+        headerText: 'text-sky-500',
+        badge: 'bg-sky-500/15 text-sky-500',
+        glyph: 'R',
+      };
+    case 'Write':
+      return {
+        border: 'border-orange-500/30',
+        headerBg: 'bg-orange-500/[0.06]',
+        headerText: 'text-orange-500',
+        badge: 'bg-orange-500/15 text-orange-500',
+        glyph: 'W',
+      };
+    case 'Edit':
+      return {
+        border: 'border-orange-500/30',
+        headerBg: 'bg-orange-500/[0.06]',
+        headerText: 'text-orange-500',
+        badge: 'bg-orange-500/15 text-orange-500',
+        glyph: 'E',
+      };
+    case 'Glob':
+    case 'Grep':
+    case 'ToolSearch':
+      return {
+        border: 'border-amber-500/30',
+        headerBg: 'bg-amber-500/[0.06]',
+        headerText: 'text-amber-500',
+        badge: 'bg-amber-500/15 text-amber-500',
+        glyph: 'S',
+      };
+    case 'Agent':
+    case 'Task':
+    case 'Skill':
+      return {
+        border: 'border-violet-500/30',
+        headerBg: 'bg-violet-500/[0.06]',
+        headerText: 'text-violet-500',
+        badge: 'bg-violet-500/15 text-violet-500',
+        glyph: 'A',
+      };
+    default:
+      return {
+        border: 'border-border',
+        headerBg: 'bg-muted/40',
+        headerText: 'text-foreground',
+        badge: 'bg-muted text-muted-foreground',
+        glyph: '·',
+      };
+  }
+}
+
+type ParsedParams =
+  | { kind: 'kv'; entries: [string, string][] }
+  | { kind: 'text'; text: string };
+
+function parseParams(raw: string): ParsedParams {
+  if (!raw) return { kind: 'text', text: '' };
+  try {
+    const obj = JSON.parse(raw);
+    if (
+      obj !== null &&
+      typeof obj === 'object' &&
+      !Array.isArray(obj) &&
+      Object.keys(obj).length > 0
+    ) {
+      const entries: [string, string][] = Object.entries(
+        obj as Record<string, unknown>,
+      ).map(([k, v]) => [k, formatValue(v)]);
+      return { kind: 'kv', entries };
+    }
+    return { kind: 'text', text: JSON.stringify(obj, null, 2) };
+  } catch {
+    return { kind: 'text', text: raw };
+  }
+}
+
+function formatValue(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (v === null || v === undefined) return String(v);
+  return JSON.stringify(v, null, 2);
 }
 
 function ToolCallBlock({ span }: { span: SpanNode }) {
   const name =
     String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
-  const inputRaw = String(span.attributes['agent_trace.tool.input_summary'] ?? '');
-  const formatted = formatJson(inputRaw);
+  const inputRaw = String(
+    span.attributes['agent_trace.tool.input_summary'] ?? '',
+  );
+  const tone = toolTone(name);
+  const params = parseParams(inputRaw);
+  const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-md border border-border bg-background">
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        <span className="font-mono text-[11px] font-medium text-sky-500">
-          {name}
-        </span>
-        <CopyButton text={formatted} />
+    <div
+      className={cn('overflow-hidden rounded-md border bg-background', tone.border)}
+    >
+      <div
+        className={cn(
+          'flex items-center justify-between px-3 py-1.5',
+          tone.headerBg,
+          open && 'border-b',
+          open && tone.border,
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 font-mono text-[11px] font-medium"
+        >
+          <ChevronDown
+            aria-hidden="true"
+            className={cn(
+              'h-3.5 w-3.5 text-muted-foreground transition-transform duration-150',
+              !open && '-rotate-90',
+            )}
+          />
+          <span
+            className={cn(
+              'inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[9px] font-bold',
+              tone.badge,
+            )}
+          >
+            {tone.glyph}
+          </span>
+          <span className={tone.headerText}>{name}</span>
+        </button>
+        <CopyButton text={inputRaw} />
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-[11.5px] leading-relaxed text-foreground">
-        {formatted || '—'}
-      </pre>
+      <Collapsible open={open}>
+        <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
+          {params.kind === 'kv' ? (
+            <dl className="space-y-4 px-3 py-3 text-[11.5px]">
+              {params.entries.map(([k, v], i) => (
+                <div key={i} className="space-y-1">
+                  <dt className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground">
+                    {k}
+                  </dt>
+                  <dd className="whitespace-pre-wrap break-words font-mono text-foreground">
+                    {v}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-[11.5px] leading-relaxed text-foreground">
+              {params.kind === 'text' && params.text ? params.text : '—'}
+            </pre>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
-}
-
-function formatJson(s: string): string {
-  if (!s) return '';
-  try {
-    return JSON.stringify(JSON.parse(s), null, 2);
-  } catch {
-    return s;
-  }
 }
 
 function CopyButton({ text }: { text: string }) {

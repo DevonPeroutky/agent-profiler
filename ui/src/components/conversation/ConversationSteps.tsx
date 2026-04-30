@@ -53,6 +53,15 @@ const TOOL_KIND_META: Record<string, Partial<KindMeta>> = {
 };
 
 function metaFor(step: ConversationStep): KindMeta {
+  if (step.variant === 'plan-response') {
+    const approved =
+      step.span?.attributes['agent_trace.tool.plan_approved'] === true;
+    return {
+      label: 'Plan response',
+      color: 'var(--tool-user)',
+      glyph: approved ? '✓' : 'P',
+    };
+  }
   if (step.kind !== 'tool') return KIND_META[step.kind];
   const sub = step.subtitle;
   const override = TOOL_KIND_META[sub];
@@ -94,6 +103,24 @@ function totalTokens(t: StepTokens): number {
 
 function shortReq(id: string): string {
   return id.length <= 10 ? id : 'req…' + id.slice(-6);
+}
+
+// Cross-reference label that lines up with `#N` in the Debug tab. Spans inside
+// a subagent index into a different transcript file; the scope attribute lets
+// us label that distinctly.
+function rowRef(step: ConversationStep): string {
+  const attrs = step.span?.attributes;
+  if (!attrs) return '';
+  const start = attrs['agent_trace.transcript.row_index'];
+  if (typeof start !== 'number') return '';
+  const end = attrs['agent_trace.transcript.row_index_end'];
+  const range =
+    typeof end === 'number' && end !== start ? `${start}–${end}` : `${start}`;
+  const scope = attrs['agent_trace.transcript.scope'];
+  if (typeof scope === 'string' && scope.startsWith('subagent:')) {
+    return `Subagent #${range}`;
+  }
+  return `Row #${range}`;
 }
 
 interface CumStep extends ConversationStep {
@@ -430,6 +457,7 @@ function StepDetail({ step, steps }: StepDetailProps) {
               {meta.label}
               {step.turnNumber !== null ? ` · Turn ${step.turnNumber}` : ' · Unattached'}
               {step.durationMs > 0 ? ` · ${fmt.ms(step.durationMs)}` : ''}
+              {rowRef(step) ? ` · ${rowRef(step)}` : ''}
             </div>
           </div>
         </div>
@@ -528,6 +556,33 @@ function StepPayload({ step }: { step: CumStep }) {
   // tool
   const input = step.span?.attributes['agent_trace.tool.input_summary'] ?? '';
   const output = step.span?.attributes['agent_trace.tool.output_summary'] ?? '';
+  if (step.variant === 'plan-response') {
+    const approved =
+      step.span?.attributes['agent_trace.tool.plan_approved'] === true;
+    const path = step.span?.attributes['agent_trace.tool.plan_file_path'];
+    return (
+      <div className="space-y-2">
+        <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[12px]">
+          <RowKv k="outcome" v={approved ? 'Approved' : 'Responded'} />
+          {typeof path === 'string' && path && (
+            <RowKv k="plan file" v={path} />
+          )}
+        </dl>
+        <div>
+          <div className="mb-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground/80">
+            Plan
+          </div>
+          <PreBlock>{String(input) || '—'}</PreBlock>
+        </div>
+        <div>
+          <div className="mb-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground/80">
+            User reply
+          </div>
+          <PreBlock>{String(output) || '—'}</PreBlock>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2">
       <div>
