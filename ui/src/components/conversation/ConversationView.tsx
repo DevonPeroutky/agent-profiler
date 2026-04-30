@@ -31,11 +31,10 @@ export function ConversationView({
         <ConversationContextChart conversation={conversation} />
       </div>
       <div className="grid grid-cols-1 gap-6 px-6 lg:grid-cols-2">
-        <Tabs defaultValue="steps" className="min-w-0">
+        <Tabs defaultValue="trajectory" className="min-w-0">
           <TabsList>
-            <TabsTrigger value="steps">Steps</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
+            <TabsTrigger value="steps">Steps</TabsTrigger>
             <TabsTrigger value="debug">Debug</TabsTrigger>
           </TabsList>
           <TabsContent value="steps">
