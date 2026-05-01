@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ReferenceLine,
   XAxis,
   YAxis,
@@ -290,7 +290,12 @@ function deriveRows(
       precedingActions,
       isTurnStart,
     };
-    row[span.owner.key] = total;
+    // Stacked-area shape: every series is present on every row. The owner
+    // carries the full context total; all other series are 0. The stacked
+    // height at each x therefore equals exactly one owner's value.
+    for (const o of ownersSeen) {
+      row[o.key] = o.key === span.owner.key ? total : 0;
+    }
     rows.push(row);
 
     prevInferenceEnd = span.endMs;
@@ -307,7 +312,35 @@ function deriveRows(
     (o) => usedKeys.has(o.key) || (o.kind === 'main' && rows.length === 0),
   );
 
-  return { rows, owners: finalOwners.length > 0 ? finalOwners : owners };
+  // For each subagent series, keep one zero-anchor on each side of its active
+  // range (so Recharts tapers the area down to 0 on the next inference rather
+  // than ending in a vertical cliff) and null out everything beyond. Main
+  // always stays numeric so its area is continuous across the conversation.
+  const finalOwnerList = finalOwners.length > 0 ? finalOwners : owners;
+  for (const o of finalOwnerList) {
+    if (o.kind !== 'subagent') continue;
+    let firstIdx = -1;
+    let lastIdx = -1;
+    for (let i = 0; i < rows.length; i += 1) {
+      const v = rows[i][o.key];
+      if (typeof v === 'number' && v > 0) {
+        if (firstIdx === -1) firstIdx = i;
+        lastIdx = i;
+      }
+    }
+    if (firstIdx === -1) continue;
+    const leadAnchor = firstIdx - 1;
+    const trailAnchor = lastIdx + 1;
+    for (let i = 0; i < rows.length; i += 1) {
+      if (i === leadAnchor || i === trailAnchor) {
+        rows[i][o.key] = 0;
+      } else if (i < firstIdx || i > lastIdx) {
+        rows[i][o.key] = null;
+      }
+    }
+  }
+
+  return { rows, owners: finalOwnerList };
 }
 
 function buildChartConfig(owners: OwnerInfo[]): ChartConfig {
@@ -345,7 +378,7 @@ export function ContextWindowChart({ conversation }: Props) {
         </div>
       ) : (
         <ChartContainer config={chartConfig} className="aspect-[16/5] w-full">
-          <LineChart
+          <AreaChart
             data={rows}
             margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
           >
@@ -385,26 +418,22 @@ export function ContextWindowChart({ conversation }: Props) {
               content={<ContextTooltip />}
             />
             {owners.map((o) => (
-              <Line
+              <Area
                 key={o.key}
                 dataKey={o.key}
                 name={o.label}
                 type="monotone"
+                stackId="ctx"
                 stroke={o.color}
-                strokeWidth={1.75}
-                dot={{
-                  r: 3,
-                  fill: o.color,
-                  stroke: 'var(--background)',
-                  strokeWidth: 1,
-                }}
-                activeDot={{ r: 5, fill: o.color, stroke: 'var(--background)', strokeWidth: 1 }}
-                connectNulls={true}
+                fill={o.color}
+                fillOpacity={0.55}
+                strokeWidth={1.5}
+                connectNulls={false}
                 isAnimationActive={false}
               />
             ))}
             <ChartLegend content={<ChartLegendContent />} />
-          </LineChart>
+          </AreaChart>
         </ChartContainer>
       )}
     </SectionCard>
