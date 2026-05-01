@@ -9,7 +9,6 @@ interface Props {
   onSelectSpan: (span: SpanNode) => void;
   onCloseSpan: () => void;
   loading: boolean;
-  showMeta: boolean;
 }
 
 export function ConversationDetail({
@@ -18,7 +17,6 @@ export function ConversationDetail({
   onSelectSpan,
   onCloseSpan,
   loading,
-  showMeta,
 }: Props) {
   if (!conversation) {
     return (
@@ -37,7 +35,6 @@ export function ConversationDetail({
           conversation={conversation}
           selectedSpanId={selectedSpan?.spanId ?? null}
           onSelectSpan={onSelectSpan}
-          showMeta={showMeta}
         />
       </div>
       {selectedSpan && (

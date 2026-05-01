@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import {
   Area,
   AreaChart,
@@ -7,18 +7,24 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ConversationSummary, SpanNode, Turn } from '@/types';
+import type { ConversationSummary, Turn } from '@/types';
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
 import { SectionCard } from '@/components/ui/section-card';
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
 import { fmt } from './format';
+import {
+  MAIN_OWNER,
+  createOwnerRegistry,
+  finalizeOwnerLabels,
+  flattenOwnedSpansForTurn,
+  type OwnerInfo,
+  type OwnerRegistry,
+  type FlatOwnedSpan,
+} from './ownerRegistry';
 
 interface PrecedingAction {
   name: string;
@@ -35,49 +41,37 @@ interface Row {
   cacheCreation: number;
   freshInput: number;
   total: number;
+  ownerKey: string;
+  ownerLabel: string;
+  ownerKind: 'main' | 'subagent';
+  ownerToolName: string | null;
+  ownerColor: string;
   model: string | null;
   trigger: string;
   precedingActions: PrecedingAction[];
   isTurnStart: boolean;
 }
 
-interface ChartFlatSpan {
-  node: SpanNode;
-  turnNumber: number;
-  inferencesInTurn: number;
-}
-
-const chartConfig: ChartConfig = {
-  cacheRead: { label: 'Cache read', color: 'var(--tok-cache-read)' },
-  cacheCreation: { label: 'Cache creation', color: 'var(--tok-cache-write)' },
-  freshInput: { label: 'Fresh input', color: 'var(--tok-fresh)' },
-} satisfies ChartConfig;
-
-function flattenTurn(turn: Turn): ChartFlatSpan[] {
-  const out: ChartFlatSpan[] = [];
-  let inferencesInTurn = 0;
-  const visit = (node: SpanNode) => {
-    if (node.name === 'inference') inferencesInTurn += 1;
-    out.push({ node, turnNumber: turn.turnNumber, inferencesInTurn });
-    for (const child of node.children) visit(child);
-  };
-  for (const child of turn.root.children) visit(child);
-  return out;
-}
-
-function deriveRows(turns: readonly Turn[]): Row[] {
-  type FlatSpan = ChartFlatSpan & { startMs: number; endMs: number };
-  const all: FlatSpan[] = [];
+function deriveRows(
+  turns: readonly Turn[],
+): { rows: Row[]; owners: OwnerInfo[] } {
+  const registry: OwnerRegistry = createOwnerRegistry();
+  const ownersSeen: OwnerInfo[] = [MAIN_OWNER];
+  const all: FlatOwnedSpan<number>[] = [];
   for (const turn of turns) {
-    for (const f of flattenTurn(turn)) {
-      all.push({ ...f, startMs: f.node.startMs, endMs: f.node.endMs });
+    for (const f of flattenOwnedSpansForTurn(turn, registry, ownersSeen)) {
+      all.push(f);
     }
   }
+  finalizeOwnerLabels(ownersSeen);
   all.sort((a, b) => a.startMs - b.startMs);
 
   const seenRequest = new Set<string>();
   const rows: Row[] = [];
-  let prevInferenceEnd: number | null = null;
+  // Per-owner lower bound. Subagent activity must not bleed into the main
+  // agent's preceding-actions window (and vice versa) — different agents
+  // run on different timelines and feed different prompts.
+  const prevInferenceEndByOwner = new Map<string, number>();
   let lastTurnEmitted: number | null = null;
   let perTurnCounter = 0;
   let globalIndex = 0;
@@ -90,8 +84,6 @@ function deriveRows(turns: readonly Turn[]): Row[] {
     const reqId = String(
       span.node.attributes['agent_trace.inference.request_id'] ?? '',
     );
-    // Always advance per-turn counter on first inference of a turn so labels
-    // stay correct even if we skip a duplicate-requestId span.
     if (lastTurnEmitted !== span.turnNumber) {
       perTurnCounter = 0;
     }
@@ -113,20 +105,28 @@ function deriveRows(turns: readonly Turn[]): Row[] {
         ? (a['gen_ai.request.model'] as string)
         : null;
 
+    // A tool's result enters this inference's prompt iff its tool_result
+    // landed (endMs) between the previous same-owner inference and this
+    // one. Filtering on startMs misses every tool — tool spans start
+    // *inside* the inference that emitted the tool_use, so their startMs
+    // sits at or before the previous inference's endMs.
     const precedingActions: PrecedingAction[] = [];
-    const lowerBound = prevInferenceEnd ?? Number.NEGATIVE_INFINITY;
+    const lowerBound =
+      prevInferenceEndByOwner.get(span.owner.key) ?? Number.NEGATIVE_INFINITY;
     for (const other of all) {
+      if (other.startMs >= span.startMs) break;
       if (other === span) continue;
       if (other.node.name === 'inference') continue;
-      if (other.startMs <= lowerBound) continue;
-      if (other.startMs >= span.startMs) break;
+      if (other.owner.key !== span.owner.key) continue;
+      if (other.endMs <= lowerBound) continue;
+      if (other.endMs > span.startMs) continue;
       const toolName =
         typeof other.node.attributes['agent_trace.tool.name'] === 'string'
           ? (other.node.attributes['agent_trace.tool.name'] as string)
           : other.node.name;
       const output =
         typeof other.node.attributes['agent_trace.tool.output_summary'] ===
-        'string'
+          'string'
           ? (other.node.attributes['agent_trace.tool.output_summary'] as string)
           : '';
       precedingActions.push({ name: toolName, outputChars: output.length });
@@ -153,16 +153,74 @@ function deriveRows(turns: readonly Turn[]): Row[] {
       cacheCreation,
       freshInput,
       total,
+      ownerKey: span.owner.key,
+      ownerLabel: span.owner.label,
+      ownerKind: span.owner.kind,
+      ownerToolName: span.owner.toolName,
+      ownerColor: span.owner.color,
       model,
       trigger,
       precedingActions,
       isTurnStart,
     });
 
-    prevInferenceEnd = span.endMs;
+    prevInferenceEndByOwner.set(span.owner.key, span.endMs);
   }
 
-  return rows;
+  // Owners that actually own at least one inference, in first-seen order.
+  // Used by the legend so it lists only what's visible on the chart.
+  const usedKeys = new Set(rows.map((r) => r.ownerKey));
+  const visibleOwners = ownersSeen.filter((o) => usedKeys.has(o.key));
+
+  return { rows, owners: visibleOwners };
+}
+
+function buildChartConfig(owners: OwnerInfo[]): ChartConfig {
+  const config: ChartConfig = {};
+  for (const o of owners) {
+    config[o.key] = {
+      label: o.label,
+      color: o.color,
+    };
+  }
+  return config;
+}
+
+interface GradientStop {
+  offset: number; // 0..1
+  color: string;
+}
+
+// Walk consecutive same-owner runs and emit two stops per run. The trailing
+// stop of one run and the leading stop of the next sit at the SAME offset
+// (the boundary between them), so the color steps instantly with no
+// interpolation between owners. The first run anchors at offset 0 and the
+// last run anchors at offset 1 so the chart's edges are pure color too.
+function buildGradientStops(rows: Row[]): GradientStop[] {
+  if (rows.length === 0) return [];
+  if (rows.length === 1) {
+    return [
+      { offset: 0, color: rows[0].ownerColor },
+      { offset: 1, color: rows[0].ownerColor },
+    ];
+  }
+  const span = rows.length - 1;
+  const stops: GradientStop[] = [];
+  let runStart = 0;
+  for (let i = 1; i <= rows.length; i += 1) {
+    const isLast = i === rows.length;
+    const ownerChanged =
+      isLast || rows[i].ownerKey !== rows[runStart].ownerKey;
+    if (ownerChanged) {
+      const color = rows[runStart].ownerColor;
+      const startOffset = runStart === 0 ? 0 : runStart / span;
+      const endOffset = isLast ? 1 : i / span;
+      stops.push({ offset: startOffset, color });
+      stops.push({ offset: endOffset, color });
+      runStart = i;
+    }
+  }
+  return stops;
 }
 
 interface Props {
@@ -170,10 +228,14 @@ interface Props {
 }
 
 export function ContextWindowChart({ conversation }: Props) {
-  const rows = useMemo(
+  const { rows, owners } = useMemo(
     () => deriveRows(conversation.turns),
     [conversation.turns],
   );
+  const chartConfig = useMemo(() => buildChartConfig(owners), [owners]);
+  const stops = useMemo(() => buildGradientStops(rows), [rows]);
+  const reactId = useId();
+  const gradId = `ctx-grad-${reactId.replace(/:/g, '')}`;
 
   if (conversation.turns.length === 0) return null;
 
@@ -192,6 +254,18 @@ export function ContextWindowChart({ conversation }: Props) {
             data={rows}
             margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
           >
+            <defs>
+              <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">
+                {stops.map((s, i) => (
+                  <stop
+                    key={i}
+                    offset={`${(s.offset * 100).toFixed(4)}%`}
+                    stopColor={s.color}
+                    stopOpacity={0.55}
+                  />
+                ))}
+              </linearGradient>
+            </defs>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="index"
@@ -219,8 +293,9 @@ export function ContextWindowChart({ conversation }: Props) {
                 <ReferenceLine
                   key={r.index}
                   x={r.index}
-                  stroke="var(--border)"
-                  strokeDasharray="2 4"
+                  stroke="hsl(var(--muted-foreground) / 0.4)"
+                  strokeDasharray="3 3"
+                  strokeWidth={1}
                 />
               ))}
             <ChartTooltip
@@ -228,37 +303,38 @@ export function ContextWindowChart({ conversation }: Props) {
               content={<ContextTooltip />}
             />
             <Area
-              dataKey="cacheRead"
+              dataKey="total"
+              name="Total context"
               type="monotone"
-              stackId="ctx"
-              stroke="var(--color-cacheRead)"
-              fill="var(--color-cacheRead)"
-              fillOpacity={0.55}
-              strokeWidth={1.5}
+              fill={`url(#${gradId})`}
+              stroke="var(--border)"
+              strokeWidth={1}
+              isAnimationActive={false}
             />
-            <Area
-              dataKey="cacheCreation"
-              type="monotone"
-              stackId="ctx"
-              stroke="var(--color-cacheCreation)"
-              fill="var(--color-cacheCreation)"
-              fillOpacity={0.55}
-              strokeWidth={1.5}
-            />
-            <Area
-              dataKey="freshInput"
-              type="monotone"
-              stackId="ctx"
-              stroke="var(--color-freshInput)"
-              fill="var(--color-freshInput)"
-              fillOpacity={0.55}
-              strokeWidth={1.5}
-            />
-            <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>
         </ChartContainer>
       )}
+      {owners.length > 0 ? <OwnerLegend owners={owners} /> : null}
     </SectionCard>
+  );
+}
+
+function OwnerLegend({ owners }: { owners: OwnerInfo[] }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px]">
+      {owners.map((o) => (
+        <div key={o.key} className="flex min-w-0 items-center gap-1.5">
+          <span
+            aria-hidden
+            className="h-2 w-2 shrink-0 rounded-[2px]"
+            style={{ background: o.color }}
+          />
+          <span className="min-w-0 truncate text-muted-foreground">
+            {o.label}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -299,27 +375,60 @@ function TwoLineTick({
 
 interface TooltipProps {
   active?: boolean;
-  payload?: Array<{ payload: Row; dataKey?: string; name?: string; value?: number; color?: string }>;
+  payload?: Array<{
+    payload: Row;
+    dataKey?: string;
+    name?: string;
+    value?: number;
+    color?: string;
+  }>;
   label?: string | number;
+}
+
+const ACTION_LIMIT = 5;
+const TRIGGER_MAX_CHARS = 140;
+
+const COMPOSITION_SEGMENTS = [
+  { key: 'freshInput', short: 'fresh', color: 'var(--tok-fresh)' },
+  { key: 'cacheRead', short: 'read', color: 'var(--tok-cache-read)' },
+  { key: 'cacheCreation', short: 'write', color: 'var(--tok-cache-write)' },
+] as const;
+
+function ColorSwatch({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="h-2 w-2 shrink-0 rounded-[2px]"
+      style={{ background: color }}
+    />
+  );
 }
 
 function ContextTooltip(props: TooltipProps) {
   const { active, payload } = props;
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
+
   const triggerSnippet = row.trigger
-    ? row.trigger.replace(/\s+/g, ' ').slice(0, 140).trim()
+    ? row.trigger.replace(/\s+/g, ' ').slice(0, TRIGGER_MAX_CHARS).trim()
     : '';
-  const visibleActions = row.precedingActions.slice(0, 5);
+  const visibleActions = row.precedingActions.slice(0, ACTION_LIMIT);
   const remaining = row.precedingActions.length - visibleActions.length;
+  const headerLabel =
+    row.ownerKind === 'main' ? 'Main Conversation' : row.ownerLabel;
 
   return (
-    <ChartTooltipShell className="py-2">
+    <ChartTooltipShell className="flex flex-col gap-2 py-2">
       <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <span className="font-medium">
-          Inference #{row.index}{' '}
-          <span className="text-muted-foreground">· {row.label}</span>
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <ColorSwatch color={row.ownerColor} />
+          <span className="min-w-0 truncate font-medium">{headerLabel}</span>
+          {row.ownerKind === 'subagent' && row.ownerToolName ? (
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              via {row.ownerToolName}
+            </span>
+          ) : null}
+        </div>
         {row.model ? (
           <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">
             {row.model}
@@ -327,36 +436,51 @@ function ContextTooltip(props: TooltipProps) {
         ) : null}
       </div>
 
-      <ChartTooltipContent
-        active={active}
-        payload={payload}
-        hideLabel
-        indicator="dot"
-        formatter={(value) =>
-          typeof value === 'number' ? fmt.n(value) : String(value)
-        }
-        className="grid gap-1 border-0 bg-transparent p-0 shadow-none"
-      />
-
-      <div className="flex items-center justify-between border-t border-border/50 pt-1">
-        <span className="font-medium">Total context</span>
-        <span className="font-mono font-medium tabular-nums">
-          {fmt.n(row.total)}
-        </span>
-      </div>
+      {row.total > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
+          <div className="flex items-center justify-between font-mono uppercase text-muted-foreground">
+            <span>Total context</span>
+            <span className="font-medium tabular-nums">{fmt.n(row.total)}</span>
+          </div>
+          <div className="flex h-2 overflow-hidden rounded bg-muted">
+            {COMPOSITION_SEGMENTS.map((s) => (
+              <span
+                key={s.key}
+                className="block h-full"
+                style={{
+                  width: `${(row[s.key] / row.total) * 100}%`,
+                  background: s.color,
+                }}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 font-mono text-[10.5px] text-muted-foreground">
+            {COMPOSITION_SEGMENTS.map((s) => (
+              <span key={s.key} className="flex min-w-0 items-center gap-1">
+                <ColorSwatch color={s.color} />
+                <span className="truncate">
+                  {s.short} {fmt.n(row[s.key])}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {row.precedingActions.length > 0 ? (
-        <div className="grid gap-1">
-          <span className="text-muted-foreground">
-            Since previous inference
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-muted-foreground">
+            tool_results included
           </span>
-          <ul className="grid gap-0.5">
+          <ul className="flex flex-col gap-0.5">
             {visibleActions.map((a, i) => (
               <li
                 key={`${a.name}-${i}`}
                 className="flex min-w-0 items-center justify-between gap-3"
               >
-                <span className="min-w-0 truncate font-mono text-[11px]">{a.name}</span>
+                <span className="min-w-0 truncate font-mono text-[11px]">
+                  {a.name}
+                </span>
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {a.outputChars > 0 ? `${fmt.n(a.outputChars)} ch` : '—'}
                 </span>
@@ -372,7 +496,7 @@ function ContextTooltip(props: TooltipProps) {
       ) : null}
 
       {triggerSnippet ? (
-        <div className="grid gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-muted-foreground">
             {row.isTurnStart ? 'User prompt' : 'Trigger'}
           </span>
@@ -382,6 +506,11 @@ function ContextTooltip(props: TooltipProps) {
           </p>
         </div>
       ) : null}
+
+      <div className="border-t border-border/50 pt-1 text-[10px] text-muted-foreground">
+        {row.label}
+      </div>
     </ChartTooltipShell>
   );
 }
+

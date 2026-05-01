@@ -14,7 +14,6 @@ interface Props {
   conversation: ConversationSummary;
   selectedSpanId: string | null;
   onSelectSpan: (span: SpanNode) => void;
-  showMeta: boolean;
 }
 
 const RAIL_TOP_INSET = 24; // matches Tailwind `top-6` = 1.5rem
@@ -23,13 +22,12 @@ export function TurnMessages({
   conversation,
   selectedSpanId,
   onSelectSpan,
-  showMeta,
 }: Props) {
   const allTurns = useMemo(() => collectTurns(conversation), [conversation]);
-  const turns = useMemo(() => {
-    const base = showMeta ? allTurns : allTurns.filter((t) => !t.isMeta);
-    return base.filter(hasVisibleActivity);
-  }, [allTurns, showMeta]);
+  const turns = useMemo(
+    () => allTurns.filter((t) => !t.isMeta).filter(hasVisibleActivity),
+    [allTurns],
+  );
   const unattached = useMemo(
     () => collectUnattached(conversation),
     [conversation],
