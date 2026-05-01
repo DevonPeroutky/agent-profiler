@@ -34,12 +34,8 @@ export function ConversationView({
           <TabsList>
             <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
             <TabsTrigger value="flow">Flow</TabsTrigger>
-            <TabsTrigger value="steps">Steps</TabsTrigger>
             <TabsTrigger value="debug">Debug</TabsTrigger>
           </TabsList>
-          <TabsContent value="steps">
-            <ConversationSteps conversation={conversation} />
-          </TabsContent>
           <TabsContent value="messages">
             <TurnMessages
               conversation={conversation}

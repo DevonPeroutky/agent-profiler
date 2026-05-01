@@ -15,6 +15,32 @@ interface Props {
   model: InferenceFlowModel;
 }
 
+function pluralize(n: number, singular: string, plural = `${singular}s`): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+function summarizeFlow(model: InferenceFlowModel): string {
+  const turns = new Set<number>();
+  for (const inf of model.branches.get('main') ?? []) {
+    if (inf.turnNumber !== null) turns.add(inf.turnNumber);
+  }
+  let skillCount = 0;
+  let subagentCount = 0;
+  for (const list of model.branches.values()) {
+    for (const inf of list) {
+      for (const d of inf.dispatches) {
+        if (d.toolName === 'Skill') skillCount++;
+        else subagentCount++;
+      }
+    }
+  }
+  return [
+    pluralize(turns.size, 'turn'),
+    pluralize(subagentCount, 'subagent'),
+    pluralize(skillCount, 'skill'),
+  ].join(' · ');
+}
+
 const SEGMENTS: Array<{
   key: keyof InferenceTokens;
   label: string;
@@ -27,10 +53,6 @@ const SEGMENTS: Array<{
 ];
 
 export function InferenceFlowHeader({ model }: Props) {
-  const mainCount = model.branches.get('main')?.length ?? 0;
-  const totalSpurs = Array.from(model.branches.keys()).filter(
-    (k) => k !== 'main' && !k.startsWith('unattached:'),
-  ).length;
   return (
     <div className="mb-3 flex flex-col gap-2 rounded-md border border-border bg-muted/20 px-3 py-2.5">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -39,8 +61,7 @@ export function InferenceFlowHeader({ model }: Props) {
             Inference flow
           </h2>
           <span className="font-mono text-[11px] text-muted-foreground/70">
-            {mainCount} on main · {totalSpurs} subagent spur
-            {totalSpurs === 1 ? '' : 's'}
+            {summarizeFlow(model)}
             {model.unattachedBranchIds.length > 0 &&
               ` · ${model.unattachedBranchIds.length} unattached`}
           </span>
@@ -123,10 +144,7 @@ function SubagentChip({ totals }: { totals: SubagentTotals }) {
             {totals.type}
           </span>
           <span className="font-mono text-[9.5px] text-muted-foreground/80">
-            ×{totals.count}
-          </span>
-          <span className="font-mono text-[9.5px] text-foreground/80">
-            {fmt.n(total)}
+            {totals.count}
           </span>
         </span>
       </TooltipTrigger>

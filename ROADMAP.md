@@ -4,7 +4,7 @@
 
 - [ ] Attachment handling?
 - [ ] Production-ize
-- [ ] Replace `Context per inference` w/Tool call overview?
+- [x] Replace `Context per inference` w/Tool call overview?
 
 ## Views
 
@@ -16,7 +16,7 @@
 
 ### Flow
 
-- [ ] Subagent View
+- [x] Subagent View
 
 ### Marketing
 
