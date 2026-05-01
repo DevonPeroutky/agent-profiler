@@ -1,7 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { InferenceNodeCard } from '../../InferenceNodeCard';
-import { ToolChildChip } from '../../ToolChildChip';
 import { useInferenceGraphContext } from '../context';
 import type { InferenceFlowNode } from '../types';
 
@@ -11,23 +10,17 @@ export function SubagentSegmentNode({
   data,
 }: NodeProps<Extract<InferenceFlowNode, { type: 'subagentSegment' }>>) {
   const { onSelectSpan } = useInferenceGraphContext();
-  const {
-    isFirstOfTurn,
-    inferences,
-    endsInDispatch,
-    dispatch,
-    tone,
-  } = data;
+  const { isFirstSegment, inferences, endsInDispatch, dispatch, tone } = data;
 
   const isUnattached = tone === 'unattached';
   const headerLabel = (() => {
-    if (isFirstOfTurn && dispatch) {
+    if (isFirstSegment && dispatch) {
       const subtype = dispatch.subagentType ?? '';
       return subtype
         ? `${dispatch.toolName} · ${subtype}`
         : dispatch.toolName;
     }
-    if (isFirstOfTurn && isUnattached) return 'unattached';
+    if (isFirstSegment && isUnattached) return 'unattached';
     return 'subagent · cont.';
   })();
 
@@ -63,24 +56,12 @@ export function SubagentSegmentNode({
       </div>
       <div className="flex flex-col gap-2 p-2">
         {inferences.map((inf) => (
-          <div key={inf.id} className="flex flex-col gap-1">
-            <InferenceNodeCard
-              node={inf}
-              demoted
-              onSelect={onSelectSpan}
-            />
-            {inf.emittedTools.length > 0 && (
-              <div className="flex flex-wrap gap-1 pl-2">
-                {inf.emittedTools.map((tool) => (
-                  <ToolChildChip
-                    key={tool.spanId}
-                    span={tool}
-                    onSelect={onSelectSpan}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <InferenceNodeCard
+            key={inf.id}
+            node={inf}
+            demoted
+            onSelect={onSelectSpan}
+          />
         ))}
       </div>
       {endsInDispatch && (

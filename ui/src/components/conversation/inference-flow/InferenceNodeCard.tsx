@@ -6,6 +6,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { SpanNode } from '@/types';
 import { fmt } from '../format';
+import { ToolChildChip } from './ToolChildChip';
 import {
   totalTokens,
   type InferenceNode,
@@ -75,9 +76,6 @@ function modelTone(model: string | null): string {
 }
 
 export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
-  if (node.isSynthetic) {
-    return <SyntheticNodeCard node={node} onSelect={onSelect} />;
-  }
   const total = totalTokens(node.tokens);
   return (
     <button
@@ -141,29 +139,17 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
           </div>
         </TooltipContent>
       </Tooltip>
-    </button>
-  );
-}
-
-function SyntheticNodeCard({
-  node,
-  onSelect,
-}: {
-  node: InferenceNode;
-  onSelect?: (span: SpanNode) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect?.(node.span)}
-      className="flex w-full items-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-2.5 py-1.5 text-left transition-colors hover:bg-muted/40"
-    >
-      <span className="rounded border border-violet-500/30 px-1 font-mono text-[10px] text-violet-500">
-        slash
-      </span>
-      <span className="truncate font-mono text-[11px] text-foreground">
-        {node.syntheticLabel ?? '/(no prompt)'}
-      </span>
+      {node.emittedTools.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1 border-t border-border/40 pt-1.5">
+          {node.emittedTools.map((tool) => (
+            <ToolChildChip
+              key={tool.spanId}
+              span={tool}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
     </button>
   );
 }

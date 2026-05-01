@@ -13,14 +13,12 @@ interface Props {
   conversation: ConversationSummary;
   selectedSpanId: string | null;
   onSelectSpan: (span: SpanNode) => void;
-  showMeta: boolean;
 }
 
 export function ConversationView({
   conversation,
   selectedSpanId,
   onSelectSpan,
-  showMeta,
 }: Props) {
   return (
     <div className="grid grid-cols-1 gap-8 pb-8">
@@ -47,7 +45,6 @@ export function ConversationView({
               conversation={conversation}
               selectedSpanId={selectedSpanId}
               onSelectSpan={onSelectSpan}
-              showMeta={showMeta}
             />
           </TabsContent>
           <TabsContent value="trajectory">

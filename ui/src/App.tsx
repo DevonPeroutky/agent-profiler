@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppHeader } from '@/components/AppHeader';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ConversationList } from '@/components/ConversationList';
 import { ConversationDetail } from '@/components/ConversationDetail';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTraces } from '@/hooks/useTraces';
 import { useSidebarCollapsed } from '@/lib/sidebar';
 import { cn } from '@/lib/utils';
@@ -67,12 +69,11 @@ function groupConversations(
 }
 
 export function App() {
-  const { traces, loading, error, lastFetched, refetch } = useTraces();
+  const { traces, loading, error } = useTraces();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
-  const [showMeta, setShowMeta] = useState(false);
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } =
     useSidebarCollapsed();
 
@@ -99,50 +100,69 @@ export function App() {
   }, [selected]);
 
   return (
-    <div className="flex h-screen flex-col">
-      <AppHeader
-        conversationCount={conversations.length}
-        traceCount={traces.length}
-        lastFetched={lastFetched}
-        loading={loading}
-        onRefresh={refetch}
-        showMeta={showMeta}
-        onToggleMeta={setShowMeta}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebar={toggleSidebar}
-      />
-
-      {error && (
-        <div className="border-b border-destructive/50 bg-destructive/10 px-6 py-2 text-xs text-destructive-foreground">
-          Failed to load traces: {error}
+    <div className="flex h-screen">
+      <aside
+        className={cn(
+          'flex w-80 shrink-0 flex-col border-r border-border',
+          sidebarCollapsed && 'hidden',
+        )}
+      >
+        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleSidebar}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="h-8 w-8"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+          <h1 className="truncate text-sm font-semibold">agent-profiler</h1>
+          <ThemeToggle />
         </div>
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        <aside
-          className={cn(
-            'w-80 shrink-0 overflow-y-auto border-r border-border',
-            sidebarCollapsed && 'hidden',
-          )}
-        >
+        <div className="flex-1 overflow-y-auto">
           <ConversationList
             conversations={conversations}
             selectedSessionId={selectedSessionId}
             onSelect={setSelectedSessionId}
           />
-        </aside>
+        </div>
+      </aside>
 
-        <main className="flex flex-1 overflow-hidden">
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        {sidebarCollapsed && (
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={toggleSidebar}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+            className="absolute left-2 top-2 z-10 h-8 w-8 bg-background shadow-sm"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </Button>
+        )}
+        {error && (
+          <div className="border-b border-destructive/50 bg-destructive/10 px-6 py-2 text-xs text-destructive-foreground">
+            Failed to load traces: {error}
+          </div>
+        )}
+        <div
+          className={cn(
+            'flex flex-1 overflow-hidden',
+            sidebarCollapsed && 'pt-10',
+          )}
+        >
           <ConversationDetail
             conversation={selected}
             selectedSpan={selectedSpan}
             onSelectSpan={setSelectedSpan}
             onCloseSpan={() => setSelectedSpan(null)}
             loading={loading}
-            showMeta={showMeta}
           />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

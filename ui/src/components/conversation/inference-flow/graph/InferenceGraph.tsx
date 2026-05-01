@@ -14,10 +14,12 @@ import { styleEdges } from './edges';
 import { layoutGraph } from './layoutGraph';
 import { SubagentSegmentNode } from './nodes/SubagentSegmentNode';
 import { TurnSegmentNode } from './nodes/TurnSegmentNode';
+import { UserPromptNode } from './nodes/UserPromptNode';
 
 const nodeTypes = {
   turnSegment: TurnSegmentNode,
   subagentSegment: SubagentSegmentNode,
+  userPromptNode: UserPromptNode,
 };
 
 interface Props {
@@ -29,7 +31,7 @@ interface Props {
 export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
   const { nodes, edges } = useMemo(() => {
     const built = buildGraph(model, conversation);
-    const laid = layoutGraph(built.nodes, built.edges, model);
+    const laid = layoutGraph(built.nodes, built.edges, model, conversation);
     return { nodes: laid.nodes, edges: styleEdges(laid.edges) };
   }, [model, conversation]);
 

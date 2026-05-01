@@ -27,20 +27,31 @@ function toolSummary(span: SpanNode): string {
   return '';
 }
 
+// Rendered as a span (not a button) so it can be nested inside the
+// InferenceNodeCard's outer button without producing invalid HTML.
+// Keyboard support via role="button" + Enter/Space.
 export function ToolChildChip({ span, onSelect }: Props) {
   const name = toolName(span);
   const tone = toolTone(name);
+  const handleSelect = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    onSelect?.(span);
+  };
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect?.(span);
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={handleSelect}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelect(e);
+            }
           }}
           className={cn(
-            'inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 transition-colors hover:bg-muted/40',
+            'inline-flex cursor-pointer items-center gap-1 rounded border bg-background px-1.5 py-0.5 transition-colors hover:bg-muted/40',
             tone.border,
           )}
         >
@@ -55,7 +66,7 @@ export function ToolChildChip({ span, onSelect }: Props) {
           <span className={cn('font-mono text-[10px]', tone.headerText)}>
             {name}
           </span>
-        </button>
+        </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[320px] px-3 py-2">
         <div className="font-mono text-[11px] font-medium">{name}</div>
