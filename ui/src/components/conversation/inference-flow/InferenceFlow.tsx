@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ConversationSummary, SpanNode } from '@/types';
 import { InferenceFlowHeader } from './InferenceFlowHeader';
-import { InferenceRail } from './InferenceRail';
+import { InferenceGraph } from './graph/InferenceGraph';
 import { buildInferenceFlowModel } from './transforms';
 
 interface Props {
@@ -34,37 +34,8 @@ export function InferenceFlow({ conversation, onSelectSpan }: Props) {
     <TooltipProvider delayDuration={150}>
       <section>
         <InferenceFlowHeader model={model} />
-        <div className="rounded-lg border border-border bg-background p-3">
-          {mainCount > 0 && (
-            <InferenceRail
-              branchId="main"
-              model={model}
-              depth={0}
-              onSelectSpan={onSelectSpan}
-            />
-          )}
-          {hasUnattached && (
-            <div className="mt-4 border-t border-dashed border-border pt-3">
-              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70">
-                Unattached subagents
-              </div>
-              <div className="flex flex-col gap-3">
-                {model.unattachedBranchIds.map((bid) => (
-                  <div
-                    key={bid}
-                    className="rounded-md border border-dashed border-amber-500/30 bg-amber-500/[0.04] p-2"
-                  >
-                    <InferenceRail
-                      branchId={bid}
-                      model={model}
-                      depth={1}
-                      onSelectSpan={onSelectSpan}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="h-[calc(100vh-280px)] min-h-[640px] overflow-hidden rounded-lg border border-border bg-background">
+          <InferenceGraph model={model} onSelectSpan={onSelectSpan} />
         </div>
       </section>
     </TooltipProvider>

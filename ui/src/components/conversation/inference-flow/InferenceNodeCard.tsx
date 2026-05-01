@@ -1,4 +1,3 @@
-import { Brain, MessageSquare, Wrench } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -58,7 +57,6 @@ function StackedBar({ tokens }: { tokens: InferenceTokens }) {
 
 function shortModel(model: string | null): string {
   if (!model) return '—';
-  // claude-sonnet-4-5-20250929 → sonnet-4.5
   const m = model.match(/claude-(opus|sonnet|haiku)-(\d+)(?:[-.](\d+))?/i);
   if (m) {
     const minor = m[3] ? `.${m[3]}` : '';
@@ -70,61 +68,10 @@ function shortModel(model: string | null): string {
 function modelTone(model: string | null): string {
   if (!model) return 'border-border text-muted-foreground';
   const lower = model.toLowerCase();
-  if (lower.includes('opus'))
-    return 'border-rose-500/40 text-rose-500';
-  if (lower.includes('sonnet'))
-    return 'border-emerald-500/40 text-emerald-500';
-  if (lower.includes('haiku'))
-    return 'border-sky-500/40 text-sky-500';
+  if (lower.includes('opus')) return 'border-rose-500/40 text-rose-500';
+  if (lower.includes('sonnet')) return 'border-emerald-500/40 text-emerald-500';
+  if (lower.includes('haiku')) return 'border-sky-500/40 text-sky-500';
   return 'border-border text-muted-foreground';
-}
-
-function stopReasonTone(reason: string | null): string {
-  switch (reason) {
-    case 'end_turn':
-      return 'bg-emerald-500/10 text-emerald-500';
-    case 'tool_use':
-      return 'bg-violet-500/10 text-violet-500';
-    case 'max_tokens':
-      return 'bg-amber-500/10 text-amber-500';
-    case 'pause_turn':
-      return 'bg-sky-500/10 text-sky-500';
-    case 'refusal':
-      return 'bg-rose-500/10 text-rose-500';
-    default:
-      return 'bg-muted text-muted-foreground';
-  }
-}
-
-function KindDot({
-  active,
-  Icon,
-  label,
-}: {
-  active: boolean;
-  Icon: typeof Brain;
-  label: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            'inline-flex h-4 w-4 items-center justify-center rounded',
-            active
-              ? 'bg-foreground/10 text-foreground'
-              : 'text-muted-foreground/30',
-          )}
-          aria-label={`${label} ${active ? 'present' : 'absent'}`}
-        >
-          <Icon className="h-2.5 w-2.5" aria-hidden="true" />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-[11px]">
-        {label} {active ? 'present' : 'absent'}
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
@@ -144,37 +91,17 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'shrink-0 font-mono text-[10px] tabular-nums',
-            demoted ? 'text-violet-500/80' : 'text-muted-foreground/70',
-          )}
-        >
-          #{node.ordinal}
-        </span>
-        <span
-          className={cn(
             'truncate rounded border px-1 font-mono text-[10px]',
             modelTone(node.model),
           )}
         >
           {shortModel(node.model)}
         </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          {node.durationMs > 0 && (
-            <span className="font-mono text-[10px] text-muted-foreground/70">
-              {fmt.ms(node.durationMs)}
-            </span>
-          )}
-          {node.stopReason && (
-            <span
-              className={cn(
-                'rounded px-1 font-mono text-[9px] uppercase tracking-[0.04em]',
-                stopReasonTone(node.stopReason),
-              )}
-            >
-              {node.stopReason}
-            </span>
-          )}
-        </span>
+        {node.durationMs > 0 && (
+          <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+            {fmt.ms(node.durationMs)}
+          </span>
+        )}
       </div>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -214,16 +141,6 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
           </div>
         </TooltipContent>
       </Tooltip>
-      <div className="flex items-center gap-1">
-        <KindDot active={node.has.thinking} Icon={Brain} label="Thinking" />
-        <KindDot active={node.has.text} Icon={MessageSquare} label="Text" />
-        <KindDot active={node.has.tool_use} Icon={Wrench} label="Tool use" />
-        {node.requestId && (
-          <span className="ml-auto truncate font-mono text-[9px] text-muted-foreground/40">
-            {node.requestId.slice(0, 8)}
-          </span>
-        )}
-      </div>
     </button>
   );
 }
@@ -241,9 +158,6 @@ function SyntheticNodeCard({
       onClick={() => onSelect?.(node.span)}
       className="flex w-full items-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-2.5 py-1.5 text-left transition-colors hover:bg-muted/40"
     >
-      <span className="font-mono text-[10px] text-muted-foreground/70">
-        #{node.ordinal}
-      </span>
       <span className="rounded border border-violet-500/30 px-1 font-mono text-[10px] text-violet-500">
         slash
       </span>
