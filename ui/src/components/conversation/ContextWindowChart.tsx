@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import {
   Area,
   AreaChart,
@@ -10,8 +10,6 @@ import {
 import type { ConversationSummary, SpanNode, Turn } from '@/types';
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   type ChartConfig,
 } from '@/components/ui/chart';
@@ -61,12 +59,11 @@ interface Row {
   ownerLabel: string;
   ownerKind: 'main' | 'subagent';
   ownerToolName: string | null;
+  ownerColor: string;
   model: string | null;
   trigger: string;
   precedingActions: PrecedingAction[];
   isTurnStart: boolean;
-  // dynamic per-owner y values (row[ownerKey] === total, others absent)
-  [series: string]: unknown;
 }
 
 interface ChartFlatSpan {
@@ -90,6 +87,22 @@ interface OwnerRegistry {
   resolve(node: SpanNode, parent: SpanNode | null): OwnerInfo;
 }
 
+function extractSkillName(parent: SpanNode): string | null {
+  const summary = parent.attributes['agent_trace.tool.input_summary'];
+  if (typeof summary !== 'string' || summary.length === 0) return null;
+  try {
+    const parsed = JSON.parse(summary) as { skill?: unknown };
+    if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
+      return parsed.skill;
+    }
+  } catch {
+    // input_summary is opportunistically truncated; tolerate non-JSON
+  }
+  const slash = parent.attributes['agent_trace.tool.slash_command'];
+  if (typeof slash === 'string' && slash.length > 0) return `/${slash}`;
+  return null;
+}
+
 function createOwnerRegistry(): OwnerRegistry {
   const byId = new Map<string, OwnerInfo>();
   const dispatchCountsByType = new Map<string, number>();
@@ -105,18 +118,23 @@ function createOwnerRegistry(): OwnerRegistry {
       const cached = byId.get(id);
       if (cached) return cached;
 
-      const type =
+      const toolName =
+        parent &&
+          typeof parent.attributes['agent_trace.tool.name'] === 'string'
+          ? (parent.attributes['agent_trace.tool.name'] as string)
+          : null;
+
+      const subagentType =
         typeof attrs['agent_trace.subagent.type'] === 'string'
           ? (attrs['agent_trace.subagent.type'] as string)
           : node.name.replace(/^subagent:/, '') || 'subagent';
+      let type = subagentType;
+      if (toolName === 'Skill' && parent) {
+        const skillFromParent = extractSkillName(parent);
+        if (skillFromParent) type = skillFromParent;
+      }
       const next = (dispatchCountsByType.get(type) ?? 0) + 1;
       dispatchCountsByType.set(type, next);
-
-      const toolName =
-        parent &&
-        typeof parent.attributes['agent_trace.tool.name'] === 'string'
-          ? (parent.attributes['agent_trace.tool.name'] as string)
-          : null;
 
       const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
       const color =
@@ -124,15 +142,12 @@ function createOwnerRegistry(): OwnerRegistry {
       paletteCursor += 1;
       const info: OwnerInfo = {
         key: `sub_${safeId}`,
-        // label is finalized after registry walk so single-dispatch types stay un-numbered
         label: type,
         kind: 'subagent',
         toolName,
         color,
       };
-      // store with a sentinel index marker so we can re-label after the walk
       byId.set(id, info);
-      // attach type + index for post-pass relabeling
       (info as OwnerInfo & { __type: string; __index: number }).__type = type;
       (info as OwnerInfo & { __type: string; __index: number }).__index = next;
       return info;
@@ -140,8 +155,6 @@ function createOwnerRegistry(): OwnerRegistry {
   };
 }
 
-// After registry has seen all subagents, finalize labels: types with multiple
-// dispatches get suffixed `#N`, single-dispatch types keep the bare type label.
 function finalizeOwnerLabels(owners: OwnerInfo[]) {
   const totals = new Map<string, number>();
   for (const o of owners) {
@@ -207,7 +220,10 @@ function deriveRows(
 
   const seenRequest = new Set<string>();
   const rows: Row[] = [];
-  let prevInferenceEnd: number | null = null;
+  // Per-owner lower bound. Subagent activity must not bleed into the main
+  // agent's preceding-actions window (and vice versa) — different agents
+  // run on different timelines and feed different prompts.
+  const prevInferenceEndByOwner = new Map<string, number>();
   let lastTurnEmitted: number | null = null;
   let perTurnCounter = 0;
   let globalIndex = 0;
@@ -241,20 +257,28 @@ function deriveRows(
         ? (a['gen_ai.request.model'] as string)
         : null;
 
+    // A tool's result enters this inference's prompt iff its tool_result
+    // landed (endMs) between the previous same-owner inference and this
+    // one. Filtering on startMs misses every tool — tool spans start
+    // *inside* the inference that emitted the tool_use, so their startMs
+    // sits at or before the previous inference's endMs.
     const precedingActions: PrecedingAction[] = [];
-    const lowerBound = prevInferenceEnd ?? Number.NEGATIVE_INFINITY;
+    const lowerBound =
+      prevInferenceEndByOwner.get(span.owner.key) ?? Number.NEGATIVE_INFINITY;
     for (const other of all) {
+      if (other.startMs >= span.startMs) break;
       if (other === span) continue;
       if (other.node.name === 'inference') continue;
-      if (other.startMs <= lowerBound) continue;
-      if (other.startMs >= span.startMs) break;
+      if (other.owner.key !== span.owner.key) continue;
+      if (other.endMs <= lowerBound) continue;
+      if (other.endMs > span.startMs) continue;
       const toolName =
         typeof other.node.attributes['agent_trace.tool.name'] === 'string'
           ? (other.node.attributes['agent_trace.tool.name'] as string)
           : other.node.name;
       const output =
         typeof other.node.attributes['agent_trace.tool.output_summary'] ===
-        'string'
+          'string'
           ? (other.node.attributes['agent_trace.tool.output_summary'] as string)
           : '';
       precedingActions.push({ name: toolName, outputChars: output.length });
@@ -271,7 +295,7 @@ function deriveRows(
 
     const turnLabel = `Turn ${span.turnNumber}`;
     const inferenceLabel = `Inference ${perTurnCounter}`;
-    const row: Row = {
+    rows.push({
       index: globalIndex,
       turnNumber: span.turnNumber,
       label: `${turnLabel} · ${inferenceLabel}`,
@@ -285,62 +309,22 @@ function deriveRows(
       ownerLabel: span.owner.label,
       ownerKind: span.owner.kind,
       ownerToolName: span.owner.toolName,
+      ownerColor: span.owner.color,
       model,
       trigger,
       precedingActions,
       isTurnStart,
-    };
-    // Stacked-area shape: every series is present on every row. The owner
-    // carries the full context total; all other series are 0. The stacked
-    // height at each x therefore equals exactly one owner's value.
-    for (const o of ownersSeen) {
-      row[o.key] = o.key === span.owner.key ? total : 0;
-    }
-    rows.push(row);
+    });
 
-    prevInferenceEnd = span.endMs;
+    prevInferenceEndByOwner.set(span.owner.key, span.endMs);
   }
 
-  // Drop owners that ended up with no inference rows attributed to them
-  // (e.g. a subagent span existed but yielded no inference yet).
+  // Owners that actually own at least one inference, in first-seen order.
+  // Used by the legend so it lists only what's visible on the chart.
   const usedKeys = new Set(rows.map((r) => r.ownerKey));
-  const owners = ownersSeen.filter(
-    (o) => usedKeys.has(o.key) || o.kind === 'main',
-  );
-  // Drop main if no inference ever ran in main scope.
-  const finalOwners = owners.filter(
-    (o) => usedKeys.has(o.key) || (o.kind === 'main' && rows.length === 0),
-  );
+  const visibleOwners = ownersSeen.filter((o) => usedKeys.has(o.key));
 
-  // For each subagent series, keep one zero-anchor on each side of its active
-  // range (so Recharts tapers the area down to 0 on the next inference rather
-  // than ending in a vertical cliff) and null out everything beyond. Main
-  // always stays numeric so its area is continuous across the conversation.
-  const finalOwnerList = finalOwners.length > 0 ? finalOwners : owners;
-  for (const o of finalOwnerList) {
-    if (o.kind !== 'subagent') continue;
-    let firstIdx = -1;
-    let lastIdx = -1;
-    for (let i = 0; i < rows.length; i += 1) {
-      const v = rows[i][o.key];
-      if (typeof v === 'number' && v > 0) {
-        if (firstIdx === -1) firstIdx = i;
-        lastIdx = i;
-      }
-    }
-    if (firstIdx === -1) continue;
-    const leadAnchor = firstIdx - 1;
-    const trailAnchor = lastIdx + 1;
-    for (let i = 0; i < rows.length; i += 1) {
-      if (i === leadAnchor || i === trailAnchor) {
-        rows[i][o.key] = 0;
-      } else if (i < firstIdx || i > lastIdx) {
-        rows[i][o.key] = null;
-      }
-    }
-  }
-
-  return { rows, owners: finalOwnerList };
+  return { rows, owners: visibleOwners };
 }
 
 function buildChartConfig(owners: OwnerInfo[]): ChartConfig {
@@ -354,6 +338,43 @@ function buildChartConfig(owners: OwnerInfo[]): ChartConfig {
   return config;
 }
 
+interface GradientStop {
+  offset: number; // 0..1
+  color: string;
+}
+
+// Walk consecutive same-owner runs and emit two stops per run. The trailing
+// stop of one run and the leading stop of the next sit at the SAME offset
+// (the boundary between them), so the color steps instantly with no
+// interpolation between owners. The first run anchors at offset 0 and the
+// last run anchors at offset 1 so the chart's edges are pure color too.
+function buildGradientStops(rows: Row[]): GradientStop[] {
+  if (rows.length === 0) return [];
+  if (rows.length === 1) {
+    return [
+      { offset: 0, color: rows[0].ownerColor },
+      { offset: 1, color: rows[0].ownerColor },
+    ];
+  }
+  const span = rows.length - 1;
+  const stops: GradientStop[] = [];
+  let runStart = 0;
+  for (let i = 1; i <= rows.length; i += 1) {
+    const isLast = i === rows.length;
+    const ownerChanged =
+      isLast || rows[i].ownerKey !== rows[runStart].ownerKey;
+    if (ownerChanged) {
+      const color = rows[runStart].ownerColor;
+      const startOffset = runStart === 0 ? 0 : runStart / span;
+      const endOffset = isLast ? 1 : i / span;
+      stops.push({ offset: startOffset, color });
+      stops.push({ offset: endOffset, color });
+      runStart = i;
+    }
+  }
+  return stops;
+}
+
 interface Props {
   conversation: ConversationSummary;
 }
@@ -364,6 +385,9 @@ export function ContextWindowChart({ conversation }: Props) {
     [conversation.turns],
   );
   const chartConfig = useMemo(() => buildChartConfig(owners), [owners]);
+  const stops = useMemo(() => buildGradientStops(rows), [rows]);
+  const reactId = useId();
+  const gradId = `ctx-grad-${reactId.replace(/:/g, '')}`;
 
   if (conversation.turns.length === 0) return null;
 
@@ -382,6 +406,18 @@ export function ContextWindowChart({ conversation }: Props) {
             data={rows}
             margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
           >
+            <defs>
+              <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">
+                {stops.map((s, i) => (
+                  <stop
+                    key={i}
+                    offset={`${(s.offset * 100).toFixed(4)}%`}
+                    stopColor={s.color}
+                    stopOpacity={0.55}
+                  />
+                ))}
+              </linearGradient>
+            </defs>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="index"
@@ -409,34 +445,48 @@ export function ContextWindowChart({ conversation }: Props) {
                 <ReferenceLine
                   key={r.index}
                   x={r.index}
-                  stroke="var(--border)"
-                  strokeDasharray="2 4"
+                  stroke="hsl(var(--muted-foreground) / 0.4)"
+                  strokeDasharray="3 3"
+                  strokeWidth={1}
                 />
               ))}
             <ChartTooltip
               cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
               content={<ContextTooltip />}
             />
-            {owners.map((o) => (
-              <Area
-                key={o.key}
-                dataKey={o.key}
-                name={o.label}
-                type="monotone"
-                stackId="ctx"
-                stroke={o.color}
-                fill={o.color}
-                fillOpacity={0.55}
-                strokeWidth={1.5}
-                connectNulls={false}
-                isAnimationActive={false}
-              />
-            ))}
-            <ChartLegend content={<ChartLegendContent />} />
+            <Area
+              dataKey="total"
+              name="Total context"
+              type="monotone"
+              fill={`url(#${gradId})`}
+              stroke="var(--border)"
+              strokeWidth={1}
+              isAnimationActive={false}
+            />
           </AreaChart>
         </ChartContainer>
       )}
+      {owners.length > 0 ? <OwnerLegend owners={owners} /> : null}
     </SectionCard>
+  );
+}
+
+function OwnerLegend({ owners }: { owners: OwnerInfo[] }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px]">
+      {owners.map((o) => (
+        <div key={o.key} className="flex min-w-0 items-center gap-1.5">
+          <span
+            aria-hidden
+            className="h-2 w-2 shrink-0 rounded-[2px]"
+            style={{ background: o.color }}
+          />
+          <span className="min-w-0 truncate text-muted-foreground">
+            {o.label}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -487,28 +537,50 @@ interface TooltipProps {
   label?: string | number;
 }
 
+const ACTION_LIMIT = 5;
+const TRIGGER_MAX_CHARS = 140;
+
+const COMPOSITION_SEGMENTS = [
+  { key: 'freshInput', short: 'fresh', color: 'var(--tok-fresh)' },
+  { key: 'cacheRead', short: 'read', color: 'var(--tok-cache-read)' },
+  { key: 'cacheCreation', short: 'write', color: 'var(--tok-cache-write)' },
+] as const;
+
+function ColorSwatch({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="h-2 w-2 shrink-0 rounded-[2px]"
+      style={{ background: color }}
+    />
+  );
+}
+
 function ContextTooltip(props: TooltipProps) {
   const { active, payload } = props;
   if (!active || !payload?.length) return null;
-  // Find the entry whose value matches this row's owner key. With sparse data
-  // (owners other than this row's owner are null), Recharts may include several
-  // payload entries; pick the one with a numeric value.
-  const entry = payload.find((p) => typeof p.value === 'number') ?? payload[0];
-  const row = entry.payload;
+  const row = payload[0].payload;
+
   const triggerSnippet = row.trigger
-    ? row.trigger.replace(/\s+/g, ' ').slice(0, 140).trim()
+    ? row.trigger.replace(/\s+/g, ' ').slice(0, TRIGGER_MAX_CHARS).trim()
     : '';
-  const visibleActions = row.precedingActions.slice(0, 5);
+  const visibleActions = row.precedingActions.slice(0, ACTION_LIMIT);
   const remaining = row.precedingActions.length - visibleActions.length;
-  const ownerSwatch = entry.color;
+  const headerLabel =
+    row.ownerKind === 'main' ? 'Main Conversation' : row.ownerLabel;
 
   return (
-    <ChartTooltipShell className="py-2">
+    <ChartTooltipShell className="flex flex-col gap-2 py-2">
       <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <span className="font-medium">
-          Inference #{row.index}{' '}
-          <span className="text-muted-foreground">· {row.label}</span>
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <ColorSwatch color={row.ownerColor} />
+          <span className="min-w-0 truncate font-medium">{headerLabel}</span>
+          {row.ownerKind === 'subagent' && row.ownerToolName ? (
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              via {row.ownerToolName}
+            </span>
+          ) : null}
+        </div>
         {row.model ? (
           <span className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">
             {row.model}
@@ -516,46 +588,43 @@ function ContextTooltip(props: TooltipProps) {
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-1">
-        <div className="flex min-w-0 items-center gap-2">
-          {ownerSwatch ? (
-            <span
-              aria-hidden
-              className="h-2 w-2 shrink-0 rounded-[2px]"
-              style={{ background: ownerSwatch }}
-            />
-          ) : null}
-          <span className="text-muted-foreground">
-            {row.ownerKind === 'main' ? 'Owner' : 'Owned by'}
-          </span>
-          <span className="min-w-0 truncate font-medium">{row.ownerLabel}</span>
+      {row.total > 0 ? (
+        <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
+          <div className="flex items-center justify-between font-mono uppercase text-muted-foreground">
+            <span>Total context</span>
+            <span className="font-medium tabular-nums">{fmt.n(row.total)}</span>
+          </div>
+          <div className="flex h-2 overflow-hidden rounded bg-muted">
+            {COMPOSITION_SEGMENTS.map((s) => (
+              <span
+                key={s.key}
+                className="block h-full"
+                style={{
+                  width: `${(row[s.key] / row.total) * 100}%`,
+                  background: s.color,
+                }}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 font-mono text-[10.5px] text-muted-foreground">
+            {COMPOSITION_SEGMENTS.map((s) => (
+              <span key={s.key} className="flex min-w-0 items-center gap-1">
+                <ColorSwatch color={s.color} />
+                <span className="truncate">
+                  {s.short} {fmt.n(row[s.key])}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
-        {row.ownerKind === 'subagent' && row.ownerToolName ? (
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-            via {row.ownerToolName}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="grid gap-0.5 border-t border-border/50 pt-1">
-        <BreakdownRow label="Cache read" value={row.cacheRead} />
-        <BreakdownRow label="Cache creation" value={row.cacheCreation} />
-        <BreakdownRow label="Fresh input" value={row.freshInput} />
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border/50 pt-1">
-        <span className="font-medium">Total context</span>
-        <span className="font-mono font-medium tabular-nums">
-          {fmt.n(row.total)}
-        </span>
-      </div>
+      ) : null}
 
       {row.precedingActions.length > 0 ? (
-        <div className="grid gap-1">
-          <span className="text-muted-foreground">
-            Since previous inference
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-muted-foreground">
+            tool_results included
           </span>
-          <ul className="grid gap-0.5">
+          <ul className="flex flex-col gap-0.5">
             {visibleActions.map((a, i) => (
               <li
                 key={`${a.name}-${i}`}
@@ -579,7 +648,7 @@ function ContextTooltip(props: TooltipProps) {
       ) : null}
 
       {triggerSnippet ? (
-        <div className="grid gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-muted-foreground">
             {row.isTurnStart ? 'User prompt' : 'Trigger'}
           </span>
@@ -589,15 +658,11 @@ function ContextTooltip(props: TooltipProps) {
           </p>
         </div>
       ) : null}
+
+      <div className="border-t border-border/50 pt-1 text-[10px] text-muted-foreground">
+        {row.label}
+      </div>
     </ChartTooltipShell>
   );
 }
 
-function BreakdownRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono tabular-nums">{fmt.n(value)}</span>
-    </div>
-  );
-}

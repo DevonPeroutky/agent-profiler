@@ -35,7 +35,11 @@ export function InferenceFlow({ conversation, onSelectSpan }: Props) {
       <section>
         <InferenceFlowHeader model={model} />
         <div className="h-[calc(100vh-280px)] min-h-[640px] overflow-hidden rounded-lg border border-border bg-background">
-          <InferenceGraph model={model} onSelectSpan={onSelectSpan} />
+          <InferenceGraph
+            model={model}
+            conversation={conversation}
+            onSelectSpan={onSelectSpan}
+          />
         </div>
       </section>
     </TooltipProvider>

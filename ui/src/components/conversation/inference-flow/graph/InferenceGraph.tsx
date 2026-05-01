@@ -6,35 +6,32 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
-import type { SpanNode } from '@/types';
+import type { ConversationSummary, SpanNode } from '@/types';
 import type { InferenceFlowModel } from '../transforms';
 import { buildGraph } from './buildGraph';
 import { InferenceGraphContext } from './context';
 import { styleEdges } from './edges';
 import { layoutGraph } from './layoutGraph';
-import { InferenceFlowNode } from './nodes/InferenceFlowNode';
-import { SubagentGroupNode } from './nodes/SubagentGroupNode';
-import { SubagentHeaderNode } from './nodes/SubagentHeaderNode';
-import { SubagentReturnNode } from './nodes/SubagentReturnNode';
+import { SubagentSegmentNode } from './nodes/SubagentSegmentNode';
+import { TurnSegmentNode } from './nodes/TurnSegmentNode';
 
 const nodeTypes = {
-  inference: InferenceFlowNode,
-  subagentGroup: SubagentGroupNode,
-  subagentHeader: SubagentHeaderNode,
-  subagentReturn: SubagentReturnNode,
+  turnSegment: TurnSegmentNode,
+  subagentSegment: SubagentSegmentNode,
 };
 
 interface Props {
   model: InferenceFlowModel;
+  conversation: ConversationSummary;
   onSelectSpan?: (span: SpanNode) => void;
 }
 
-export function InferenceGraph({ model, onSelectSpan }: Props) {
+export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
   const { nodes, edges } = useMemo(() => {
-    const built = buildGraph(model);
+    const built = buildGraph(model, conversation);
     const laid = layoutGraph(built.nodes, built.edges, model);
     return { nodes: laid.nodes, edges: styleEdges(laid.edges) };
-  }, [model]);
+  }, [model, conversation]);
 
   const ctx = useMemo(() => ({ onSelectSpan }), [onSelectSpan]);
 

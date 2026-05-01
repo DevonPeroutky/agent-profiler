@@ -5,19 +5,21 @@ export type FlowTone = 'default' | 'subagent' | 'unattached';
 
 export type EdgeTone = 'default' | 'subagent' | 'dispatch' | 'return';
 
-export interface InferenceNodeData extends Record<string, unknown> {
-  node: InferenceNode;
+export interface SegmentData extends Record<string, unknown> {
+  turnNumber: number | null;
+  segmentIndex: number;
+  isFirstOfTurn: boolean;
+  promptLabel: string | null;
+  inferences: InferenceNode[];
+  endsInDispatch: boolean;
   tone: FlowTone;
 }
 
-export interface SubagentBoundaryData extends Record<string, unknown> {
-  dispatch: Dispatch;
-  tone: FlowTone;
-}
-
-export interface SubagentGroupData extends Record<string, unknown> {
-  dispatch: Dispatch;
-  depth: number;
+export interface SubagentSegmentData extends SegmentData {
+  // Set on the first segment of a subagent bundle (carries dispatch metadata
+  // for the header label like "Skill · Explore"). Undefined on continuation
+  // segments inside the same bundle.
+  dispatch?: Dispatch;
 }
 
 export interface FlowEdgeData extends Record<string, unknown> {
@@ -25,9 +27,7 @@ export interface FlowEdgeData extends Record<string, unknown> {
 }
 
 export type InferenceFlowNode =
-  | Node<InferenceNodeData, 'inference'>
-  | Node<SubagentBoundaryData, 'subagentHeader'>
-  | Node<SubagentBoundaryData, 'subagentReturn'>
-  | Node<SubagentGroupData, 'subagentGroup'>;
+  | Node<SegmentData, 'turnSegment'>
+  | Node<SubagentSegmentData, 'subagentSegment'>;
 
 export type InferenceFlowEdge = Edge<FlowEdgeData>;

@@ -1,25 +1,45 @@
+import type { ConversationSummary, Turn } from '@/types';
 import type {
   EdgeTone,
   FlowTone,
   InferenceFlowEdge,
   InferenceFlowNode,
+  SegmentData,
+  SubagentSegmentData,
 } from './types';
-import type { InferenceFlowModel } from '../transforms';
+import type {
+  Dispatch,
+  InferenceFlowModel,
+  InferenceNode,
+} from '../transforms';
 
-interface BranchExit {
+interface RailExit {
   id: string;
-  isReturn: boolean;
+  handle: 'bottom';
+  tone: EdgeTone;
 }
 
-interface ProcessResult {
-  entryId: string | null;
-  exits: BranchExit[];
+interface BranchResult {
+  entryId: string;
+  exits: RailExit[];
 }
 
 interface Acc {
   nodes: InferenceFlowNode[];
   edges: InferenceFlowEdge[];
   edgeIds: Set<string>;
+}
+
+interface MainTurnGroup {
+  id: string;
+  turnNumber: number | null;
+  promptLabel: string | null;
+  inferences: InferenceNode[];
+}
+
+interface Segment {
+  leadingInferences: InferenceNode[];
+  dispatchAfter: Dispatch | null;
 }
 
 function pushEdge(
@@ -44,128 +64,287 @@ function pushEdge(
   });
 }
 
-function processBranch(
-  model: InferenceFlowModel,
-  branchId: string,
-  tone: FlowTone,
-  parentGroupId: string | undefined,
-  depth: number,
-  acc: Acc,
-): ProcessResult {
-  const inferences = model.branches.get(branchId) ?? [];
-  if (inferences.length === 0) return { entryId: null, exits: [] };
-
-  let entryId: string | null = null;
-  let prevExits: BranchExit[] = [];
-
-  const inboundEdgeTone: EdgeTone =
-    tone === 'subagent' ? 'subagent' : 'default';
-
-  for (const inf of inferences) {
-    acc.nodes.push({
-      id: inf.id,
-      type: 'inference',
-      data: { node: inf, tone },
-      position: { x: 0, y: 0 },
-      ...(parentGroupId
-        ? { parentId: parentGroupId, extent: 'parent' as const }
-        : {}),
-    });
-
-    if (entryId === null) entryId = inf.id;
-
-    for (const exit of prevExits) {
-      pushEdge(
-        acc,
-        exit.id,
-        inf.id,
-        exit.isReturn ? 'return' : inboundEdgeTone,
-        exit.isReturn ? 'left' : 'bottom',
-        'top',
-      );
-    }
-
-    if (inf.dispatches.length === 0) {
-      prevExits = [{ id: inf.id, isReturn: false }];
-      continue;
-    }
-
-    const newExits: BranchExit[] = [];
-    for (const dispatch of inf.dispatches) {
-      const groupId = `${dispatch.childBranchId}::group`;
-      const headerId = `${dispatch.childBranchId}::header`;
-      const returnId = `${dispatch.childBranchId}::return`;
-
-      acc.nodes.push({
-        id: groupId,
-        type: 'subagentGroup',
-        data: { dispatch, depth: depth + 1 },
-        position: { x: 0, y: 0 },
-        ...(parentGroupId
-          ? { parentId: parentGroupId, extent: 'parent' as const }
-          : {}),
-      });
-
-      acc.nodes.push({
-        id: headerId,
-        type: 'subagentHeader',
-        data: { dispatch, tone: 'subagent' },
-        position: { x: 0, y: 0 },
-        parentId: groupId,
-        extent: 'parent',
-      });
-      acc.nodes.push({
-        id: returnId,
-        type: 'subagentReturn',
-        data: { dispatch, tone: 'subagent' },
-        position: { x: 0, y: 0 },
-        parentId: groupId,
-        extent: 'parent',
-      });
-
-      pushEdge(acc, inf.id, headerId, 'dispatch', 'right', 'left');
-
-      const sub = processBranch(
-        model,
-        dispatch.childBranchId,
-        'subagent',
-        groupId,
-        depth + 1,
-        acc,
-      );
-
-      if (sub.entryId) {
-        pushEdge(acc, headerId, sub.entryId, 'subagent', 'bottom', 'top');
-        for (const exit of sub.exits) {
-          pushEdge(
-            acc,
-            exit.id,
-            returnId,
-            exit.isReturn ? 'return' : 'subagent',
-            exit.isReturn ? 'left' : 'bottom',
-            'top',
-          );
-        }
-      } else {
-        pushEdge(acc, headerId, returnId, 'subagent', 'bottom', 'top');
-      }
-
-      newExits.push({ id: returnId, isReturn: true });
-    }
-    prevExits = newExits;
-  }
-
-  return { entryId, exits: prevExits };
+function truncatePromptLabel(raw: string | undefined, max = 80): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('/')) return cleaned.split(' ')[0];
+  return cleaned.length > max ? cleaned.slice(0, max - 1) + '…' : cleaned;
 }
 
-export function buildGraph(model: InferenceFlowModel): {
+function groupMainByTurn(
+  inferences: InferenceNode[],
+  turnsByNumber: Map<number, Turn>,
+): MainTurnGroup[] {
+  const groups = new Map<string, MainTurnGroup>();
+  for (const inf of inferences) {
+    const tn = inf.turnNumber;
+    const key = tn !== null ? `turn:${tn}` : `turn:orphan:${inf.id}`;
+    let g = groups.get(key);
+    if (!g) {
+      const turn = tn !== null ? turnsByNumber.get(tn) : undefined;
+      const label =
+        truncatePromptLabel(turn?.userPrompt) ?? inf.syntheticLabel ?? null;
+      g = { id: key, turnNumber: tn, promptLabel: label, inferences: [] };
+      groups.set(key, g);
+    }
+    g.inferences.push(inf);
+  }
+  return Array.from(groups.values());
+}
+
+// Split inferences into segments at every dispatch boundary. A segment ends
+// either at a dispatch (then dispatchAfter is set) or at the end of the
+// inference list (dispatchAfter null).
+function segmentInferences(inferences: InferenceNode[]): Segment[] {
+  const segments: Segment[] = [];
+  let buf: InferenceNode[] = [];
+  for (const inf of inferences) {
+    buf.push(inf);
+    if (inf.dispatches.length === 0) continue;
+    for (let i = 0; i < inf.dispatches.length; i++) {
+      const d = inf.dispatches[i];
+      // First dispatch of an inference closes the current buffer (which
+      // includes inf). Subsequent dispatches of the same inference produce
+      // additional empty-buffer segments — rare, but kept structurally
+      // consistent.
+      segments.push({ leadingInferences: buf, dispatchAfter: d });
+      buf = [];
+    }
+  }
+  if (buf.length > 0) {
+    segments.push({ leadingInferences: buf, dispatchAfter: null });
+  }
+  return segments;
+}
+
+function processSubagentBranch(
+  branchId: string,
+  dispatch: Dispatch,
+  model: InferenceFlowModel,
+  acc: Acc,
+): BranchResult | null {
+  const inferences = model.branches.get(branchId) ?? [];
+  if (inferences.length === 0) return null;
+
+  const segments = segmentInferences(inferences);
+  return emitSegmentChain({
+    segments,
+    branchKey: branchId,
+    tone: 'subagent',
+    nodeType: 'subagentSegment',
+    turnNumber: null,
+    promptLabel: null,
+    firstSegmentDispatch: dispatch,
+    model,
+    acc,
+  });
+}
+
+interface EmitChainArgs {
+  segments: Segment[];
+  branchKey: string;
+  tone: FlowTone;
+  nodeType: 'turnSegment' | 'subagentSegment';
+  turnNumber: number | null;
+  promptLabel: string | null;
+  // For subagent chains: the dispatch that opened this bundle (attached to the
+  // first segment so its header can render "Skill · Explore" etc.).
+  firstSegmentDispatch?: Dispatch;
+  model: InferenceFlowModel;
+  acc: Acc;
+}
+
+// Emits a vertical chain of segments and recurses into any dispatched
+// subagent subtree per segment. Returns the entry node (first segment) and
+// the trailing exits to wire onto whatever follows.
+function emitSegmentChain(args: EmitChainArgs): BranchResult | null {
+  const {
+    segments,
+    branchKey,
+    tone,
+    nodeType,
+    turnNumber,
+    promptLabel,
+    firstSegmentDispatch,
+    model,
+    acc,
+  } = args;
+  if (segments.length === 0) return null;
+
+  let entryId: string | null = null;
+  let prevExits: RailExit[] = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const nodeId = `${branchKey}::seg:${i}`;
+    const isFirstOfTurn = i === 0;
+    const baseData: SegmentData = {
+      turnNumber,
+      segmentIndex: i,
+      isFirstOfTurn,
+      promptLabel: isFirstOfTurn ? promptLabel : null,
+      inferences: seg.leadingInferences,
+      endsInDispatch: seg.dispatchAfter !== null,
+      tone,
+    };
+
+    if (nodeType === 'subagentSegment') {
+      const data: SubagentSegmentData = {
+        ...baseData,
+        ...(isFirstOfTurn && firstSegmentDispatch
+          ? { dispatch: firstSegmentDispatch }
+          : {}),
+      };
+      acc.nodes.push({
+        id: nodeId,
+        type: 'subagentSegment',
+        data,
+        position: { x: 0, y: 0 },
+      });
+    } else {
+      acc.nodes.push({
+        id: nodeId,
+        type: 'turnSegment',
+        data: baseData,
+        position: { x: 0, y: 0 },
+      });
+    }
+
+    if (entryId === null) entryId = nodeId;
+
+    // Wire incoming edges from prevExits (rail or return) into this segment.
+    for (const exit of prevExits) {
+      pushEdge(acc, exit.id, nodeId, exit.tone, exit.handle, 'top');
+    }
+
+    if (seg.dispatchAfter) {
+      const sub = processSubagentBranch(
+        seg.dispatchAfter.childBranchId,
+        seg.dispatchAfter,
+        model,
+        acc,
+      );
+      if (sub) {
+        pushEdge(acc, nodeId, sub.entryId, 'dispatch', 'right', 'top');
+        // The next segment receives a `return`-toned edge from the subagent's
+        // last segment(s), restoring the visual return-flow signal.
+        prevExits = sub.exits.map((e) => ({ ...e, tone: 'return' as const }));
+      } else {
+        // Empty subagent branch: keep the chain moving via this segment's
+        // bottom handle so the rail doesn't dead-end.
+        prevExits = [{ id: nodeId, handle: 'bottom', tone: 'default' }];
+      }
+    } else {
+      prevExits = [
+        {
+          id: nodeId,
+          handle: 'bottom',
+          tone: tone === 'subagent' ? 'subagent' : 'default',
+        },
+      ];
+    }
+  }
+
+  return { entryId: entryId!, exits: prevExits };
+}
+
+function processMainRail(
+  model: InferenceFlowModel,
+  conversation: ConversationSummary,
+  acc: Acc,
+): void {
+  const main = model.branches.get('main') ?? [];
+  if (main.length === 0) return;
+
+  const turnsByNumber = new Map<number, Turn>();
+  for (const t of conversation.turns) turnsByNumber.set(t.turnNumber, t);
+  const groups = groupMainByTurn(main, turnsByNumber);
+
+  let prevExits: RailExit[] = [];
+
+  for (const group of groups) {
+    const segments = segmentInferences(group.inferences);
+    if (segments.length === 0) continue;
+
+    // Inline chain emission (mirrors emitSegmentChain) so rail edges from a
+    // previous turn's exits land on the new turn's entry seamlessly.
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const nodeId = `${group.id}::seg:${i}`;
+      const isFirstOfTurn = i === 0;
+      const data: SegmentData = {
+        turnNumber: group.turnNumber,
+        segmentIndex: i,
+        isFirstOfTurn,
+        promptLabel: isFirstOfTurn ? group.promptLabel : null,
+        inferences: seg.leadingInferences,
+        endsInDispatch: seg.dispatchAfter !== null,
+        tone: 'default',
+      };
+      acc.nodes.push({
+        id: nodeId,
+        type: 'turnSegment',
+        data,
+        position: { x: 0, y: 0 },
+      });
+
+      for (const exit of prevExits) {
+        pushEdge(acc, exit.id, nodeId, exit.tone, exit.handle, 'top');
+      }
+
+      if (seg.dispatchAfter) {
+        const sub = processSubagentBranch(
+          seg.dispatchAfter.childBranchId,
+          seg.dispatchAfter,
+          model,
+          acc,
+        );
+        if (sub) {
+          pushEdge(acc, nodeId, sub.entryId, 'dispatch', 'right', 'top');
+          prevExits = sub.exits.map((e) => ({ ...e, tone: 'return' as const }));
+        } else {
+          prevExits = [{ id: nodeId, handle: 'bottom', tone: 'default' }];
+        }
+      } else {
+        prevExits = [{ id: nodeId, handle: 'bottom', tone: 'default' }];
+      }
+    }
+  }
+}
+
+function processUnattachedBranch(
+  branchId: string,
+  index: number,
+  model: InferenceFlowModel,
+  acc: Acc,
+): void {
+  const inferences = model.branches.get(branchId) ?? [];
+  if (inferences.length === 0) return;
+  const segments = segmentInferences(inferences);
+  emitSegmentChain({
+    segments,
+    branchKey: `unattached:${index}`,
+    tone: 'unattached',
+    nodeType: 'subagentSegment',
+    turnNumber: null,
+    promptLabel: null,
+    model,
+    acc,
+  });
+}
+
+export function buildGraph(
+  model: InferenceFlowModel,
+  conversation: ConversationSummary,
+): {
   nodes: InferenceFlowNode[];
   edges: InferenceFlowEdge[];
 } {
   const acc: Acc = { nodes: [], edges: [], edgeIds: new Set() };
-  processBranch(model, 'main', 'default', undefined, 0, acc);
-  for (const bid of model.unattachedBranchIds) {
-    processBranch(model, bid, 'unattached', undefined, 0, acc);
-  }
+  processMainRail(model, conversation, acc);
+  model.unattachedBranchIds.forEach((bid, i) =>
+    processUnattachedBranch(bid, i, model, acc),
+  );
   return { nodes: acc.nodes, edges: acc.edges };
 }
