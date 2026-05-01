@@ -246,6 +246,32 @@ function isDispatchSpan(span: SpanNode): boolean {
   );
 }
 
+// Sum across all subagent children. Multiple children occur when a single
+// Agent tool call spawned parallel subagents — totals represent the aggregate
+// cost of *this dispatch*.
+function dispatchSubagentTokens(span: SpanNode): StepTokens | null {
+  const kids = span.children.filter(
+    (c) => c.attributes?.['agent_trace.event_type'] === 'subagent',
+  );
+  if (kids.length === 0) return null;
+  const num = (v: unknown) => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+  let input = 0;
+  let output = 0;
+  let cacheRead = 0;
+  let cacheCreation = 0;
+  for (const c of kids) {
+    input += num(c.attributes['agent_trace.subagent.input_tokens']);
+    output += num(c.attributes['agent_trace.subagent.output_tokens']);
+    cacheRead += num(c.attributes['agent_trace.subagent.cache_read_tokens']);
+    cacheCreation += num(c.attributes['agent_trace.subagent.cache_creation_tokens']);
+  }
+  if (input + output + cacheRead + cacheCreation === 0) return null;
+  return { input, output, cacheRead, cacheCreation };
+}
+
 function isSubagentEntry(
   entry: TrajectoryEntry,
   inferences: TrajectoryInference[],
@@ -560,11 +586,15 @@ function ToolCallBlock({
             </span>
           )}
         </button>
-        <ToolMeta span={span} />
+        <div className="flex items-center gap-3">
+          <DispatchTokenChip span={span} />
+          <ToolMeta span={span} />
+        </div>
       </div>
       <Collapsible open={open}>
         <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
           <div className="space-y-3 px-3 py-3">
+            <DispatchTokenOverview span={span} />
             <ToolSection label="Input" copyText={inputRaw}>
               {params.kind === 'kv' ? (
                 <dl className="space-y-3 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[11.5px]">
@@ -659,9 +689,56 @@ function ToolMeta({ span }: { span: SpanNode }) {
     typeof bytesAttr === 'number' && Number.isFinite(bytesAttr) ? bytesAttr : 0;
   if (ms <= 0 && bytes <= 0) return null;
   return (
-    <div className="ml-2 mr-1 flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
+    <div className="mr-1 flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">
       {ms > 0 && <span>{fmt.ms(ms)}</span>}
       {bytes > 0 && <span>· {fmt.bytes(bytes)}</span>}
+    </div>
+  );
+}
+
+function DispatchTokenChip({ span }: { span: SpanNode }) {
+  const tokens = dispatchSubagentTokens(span);
+  if (!tokens) return null;
+  const inputTotal = tokens.input + tokens.cacheRead + tokens.cacheCreation;
+  return (
+    <span className="font-mono text-[10.5px] text-muted-foreground">
+      {fmt.n(inputTotal)} in · {fmt.n(tokens.output)} out
+    </span>
+  );
+}
+
+function DispatchTokenOverview({ span }: { span: SpanNode }) {
+  const tokens = dispatchSubagentTokens(span);
+  if (!tokens) return null;
+  const inputTotal = tokens.input + tokens.cacheRead + tokens.cacheCreation;
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          Subagent context
+        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {fmt.n(inputTotal)} in · {fmt.n(tokens.output)} out
+        </span>
+      </div>
+      <dl className="grid grid-cols-4 gap-3">
+        {TOK_ROWS.map(({ key, label, cssVar }) => (
+          <div key={key} className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 shrink-0 rounded-sm"
+                style={{ background: `var(${cssVar})` }}
+              />
+              <span className="text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                {label}
+              </span>
+            </div>
+            <span className="font-mono text-[12px] tabular-nums text-foreground">
+              {fmt.n(tokens[key])}
+            </span>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

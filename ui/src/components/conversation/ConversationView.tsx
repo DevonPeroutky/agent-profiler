@@ -1,12 +1,12 @@
 import type { ConversationSummary, SpanNode } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContextWindowChart } from './ContextWindowChart';
-import { ConversationContextChart } from './ConversationContextChart';
 import { ConversationDebug } from './ConversationDebug';
 import { ConversationOverview } from './ConversationOverview';
 import { ConversationSteps } from './ConversationSteps';
 import { ConversationTrajectory } from './ConversationTrajectory';
 import { InferenceFlow } from './inference-flow/InferenceFlow';
+import { ToolUsageOverviewChart } from './ToolUsageOverviewChart';
 import { TurnMessages } from './TurnMessages';
 
 interface Props {
@@ -29,7 +29,7 @@ export function ConversationView({
       </div>
       <div className="grid grid-cols-1 gap-4 px-6 lg:grid-cols-2">
         <ContextWindowChart conversation={conversation} />
-        <ConversationContextChart conversation={conversation} />
+        <ToolUsageOverviewChart conversation={conversation} />
       </div>
       <div className="px-6">
         <Tabs defaultValue="trajectory">
