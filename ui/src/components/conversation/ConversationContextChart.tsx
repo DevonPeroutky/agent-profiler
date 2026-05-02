@@ -1,26 +1,19 @@
-import { useMemo } from 'react';
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
+  type ChartConfig,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
-  type ChartConfig,
 } from '@/components/ui/chart';
-import { SectionCard } from '@/components/ui/section-card';
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
+import { SectionCard } from '@/components/ui/section-card';
 import type { ConversationSummary } from '@/types';
+import { useMemo } from 'react';
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import {
-  buildConversationSteps,
   type ConversationStep,
   type ConversationStepKind,
+  buildConversationSteps,
 } from './transforms';
 
 interface Props {
@@ -50,9 +43,8 @@ const fmt = {
     const abs = Math.abs(x);
     if (abs === 0) return '0';
     if (abs < 1000) return String(Math.round(x));
-    if (abs < 1e6)
-      return (x / 1000).toFixed(abs < 10000 ? 2 : 1).replace(/\.0+$/, '') + 'k';
-    return (x / 1e6).toFixed(2) + 'M';
+    if (abs < 1e6) return `${(x / 1000).toFixed(abs < 10000 ? 2 : 1).replace(/\.0+$/, '')}k`;
+    return `${(x / 1e6).toFixed(2)}M`;
   },
   signed(x: number): string {
     if (x === 0) return '0';
@@ -110,17 +102,14 @@ function buildData(conversation: ConversationSummary): ChartDatum[] {
       continue;
     }
     const isUnattached = step.turnNumber === null;
-    const crossingUnattachedBoundary =
-      isUnattached && prevTraceId !== step.traceId;
+    const crossingUnattachedBoundary = isUnattached && prevTraceId !== step.traceId;
     if (crossingUnattachedBoundary) {
       prevAbsolute = 0;
     }
-    const isFirstOfTurn =
-      step.turnNumber !== null && step.turnNumber !== prevTurnNumber;
+    const isFirstOfTurn = step.turnNumber !== null && step.turnNumber !== prevTurnNumber;
     if (isFirstOfTurn || crossingUnattachedBoundary) withinBucket = 0;
     withinBucket += 1;
-    const after =
-      step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
+    const after = step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
     const before = prevAbsolute;
     const fresh = step.tokens.input;
     const cacheRead = step.tokens.cacheRead;
@@ -132,9 +121,7 @@ function buildData(conversation: ConversationSummary): ChartDatum[] {
         step.turnNumber !== null
           ? `Turn ${step.turnNumber} · Inference ${withinBucket}`
           : `Unattached · Inference ${withinBucket}`,
-      model:
-        (step.span?.attributes['gen_ai.request.model'] as string | undefined) ??
-        null,
+      model: (step.span?.attributes['gen_ai.request.model'] as string | undefined) ?? null,
       before,
       after,
       delta: after - before,
@@ -165,22 +152,15 @@ export function ConversationContextChart({ conversation }: Props) {
   if (data.length === 0) return null;
 
   const peakAfter = data.reduce((m, d) => (d.after > m ? d.after : m), 0);
-  const turnBoundaryIndices = data
-    .filter((d) => d.idx > 1 && d.isFirstOfTurn)
-    .map((d) => d.idx);
-  const unattachedBoundaryIndices = data
-    .filter((d) => d.isFirstAfterUnattached)
-    .map((d) => d.idx);
+  const turnBoundaryIndices = data.filter((d) => d.idx > 1 && d.isFirstOfTurn).map((d) => d.idx);
+  const unattachedBoundaryIndices = data.filter((d) => d.isFirstAfterUnattached).map((d) => d.idx);
 
   return (
     <SectionCard
       title="Context per inference"
       footer={`${pluralize(data.length, 'inference')} · peak ${fmt.n(peakAfter)} tok`}
     >
-      <ChartContainer
-        config={CHART_CONFIG}
-        className="aspect-[16/5] w-full"
-      >
+      <ChartContainer config={CHART_CONFIG} className="aspect-[16/5] w-full">
         <BarChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
@@ -188,9 +168,7 @@ export function ConversationContextChart({ conversation }: Props) {
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tickFormatter={(value) =>
-              data.find((d) => d.idx === value)?.label ?? String(value)
-            }
+            tickFormatter={(value) => data.find((d) => d.idx === value)?.label ?? String(value)}
             interval="preserveStartEnd"
             minTickGap={64}
           />
@@ -227,22 +205,9 @@ export function ConversationContextChart({ conversation }: Props) {
             cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
             content={<ContextTooltip />}
           />
-          <Bar
-            dataKey="cacheRead"
-            stackId="ctx"
-            fill="var(--color-cacheRead)"
-          />
-          <Bar
-            dataKey="cacheCreation"
-            stackId="ctx"
-            fill="var(--color-cacheCreation)"
-          />
-          <Bar
-            dataKey="fresh"
-            stackId="ctx"
-            fill="var(--color-fresh)"
-            radius={[2, 2, 0, 0]}
-          />
+          <Bar dataKey="cacheRead" stackId="ctx" fill="var(--color-cacheRead)" />
+          <Bar dataKey="cacheCreation" stackId="ctx" fill="var(--color-cacheCreation)" />
+          <Bar dataKey="fresh" stackId="ctx" fill="var(--color-fresh)" radius={[2, 2, 0, 0]} />
           <ChartLegend content={<ChartLegendContent />} />
         </BarChart>
       </ChartContainer>
@@ -262,9 +227,7 @@ function ContextTooltip({ active, payload }: TooltipProps) {
 
   const isInitial = datum.idx === 1 || datum.isFirstAfterUnattached;
   const compTotal =
-    datum.composition.fresh +
-    datum.composition.cacheRead +
-    datum.composition.cacheCreation;
+    datum.composition.fresh + datum.composition.cacheRead + datum.composition.cacheCreation;
   const counts = datum.intervening.reduce(
     (acc, s) => {
       acc[s.kind] = (acc[s.kind] ?? 0) + 1;
@@ -282,13 +245,9 @@ function ContextTooltip({ active, payload }: TooltipProps) {
   return (
     <ChartTooltipShell>
       <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <span className="whitespace-nowrap font-medium">
-          Inference {datum.idx}
-        </span>
+        <span className="whitespace-nowrap font-medium">Inference {datum.idx}</span>
         <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-          {datum.turnNumber !== null
-            ? `Turn ${datum.turnNumber}`
-            : 'unattached'}
+          {datum.turnNumber !== null ? `Turn ${datum.turnNumber}` : 'unattached'}
           {datum.model ? ` · ${datum.model}` : ''}
         </span>
       </div>
@@ -306,10 +265,7 @@ function ContextTooltip({ active, payload }: TooltipProps) {
           <span className="text-muted-foreground">after</span>
           <span className="text-foreground">{fmt.n(datum.after)}</span>
           <span
-            className={
-              'ml-2 font-medium ' +
-              (datum.delta >= 0 ? 'text-foreground' : 'text-destructive')
-            }
+            className={`ml-2 font-medium ${datum.delta >= 0 ? 'text-foreground' : 'text-destructive'}`}
           >
             Δ {fmt.signed(datum.delta)}
           </span>
@@ -358,9 +314,7 @@ function ContextTooltip({ active, payload }: TooltipProps) {
         </div>
         {datum.intervening.length === 0 ? (
           <div className="text-[11.5px] text-muted-foreground/80">
-            {isInitial
-              ? 'Initial inference — no prior context.'
-              : 'No intervening steps.'}
+            {isInitial ? 'Initial inference — no prior context.' : 'No intervening steps.'}
           </div>
         ) : (
           <>
@@ -369,19 +323,14 @@ function ContextTooltip({ active, payload }: TooltipProps) {
             </div>
             <ul className="space-y-1">
               {items.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex min-w-0 items-center gap-1.5 text-[11.5px]"
-                >
+                <li key={s.id} className="flex min-w-0 items-center gap-1.5 text-[11.5px]">
                   <span
                     className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded font-mono text-[9px] font-semibold text-white"
                     style={{ background: KIND_COLOR[s.kind] }}
                   >
                     {KIND_GLYPH[s.kind]}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-foreground">
-                    {s.label}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">{s.label}</span>
                   {s.outputTokens > 0 && (
                     <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
                       {fmt.n(s.outputTokens)} tok

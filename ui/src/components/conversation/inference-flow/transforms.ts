@@ -1,9 +1,4 @@
-import type {
-  ConversationSummary,
-  SpanNode,
-  Turn,
-  UnattachedGroup,
-} from '@/types';
+import type { ConversationSummary, SpanNode, Turn, UnattachedGroup } from '@/types';
 
 export interface InferenceTokens {
   input: number;
@@ -90,11 +85,7 @@ function skillFromToolInput(raw: string | null): string | null {
   return null;
 }
 
-function deriveDispatchType(
-  toolName: string,
-  dt: SpanNode,
-  subagentSpan: SpanNode,
-): string | null {
+function deriveDispatchType(toolName: string, dt: SpanNode, subagentSpan: SpanNode): string | null {
   if (toolName === 'Skill') {
     const input = asString(dt.attributes['agent_trace.tool.input_summary']);
     const skill = skillFromToolInput(input);
@@ -112,9 +103,7 @@ function readInferenceTokens(span: SpanNode): InferenceTokens {
   return {
     input: Number(span.attributes['gen_ai.usage.input_tokens'] ?? 0),
     cacheRead: Number(span.attributes['gen_ai.usage.cache_read_tokens'] ?? 0),
-    cacheCreation: Number(
-      span.attributes['gen_ai.usage.cache_creation_tokens'] ?? 0,
-    ),
+    cacheCreation: Number(span.attributes['gen_ai.usage.cache_creation_tokens'] ?? 0),
     output: Number(span.attributes['gen_ai.usage.output_tokens'] ?? 0),
   };
 }
@@ -122,12 +111,8 @@ function readInferenceTokens(span: SpanNode): InferenceTokens {
 function readSubagentTokens(span: SpanNode): InferenceTokens {
   return {
     input: Number(span.attributes['agent_trace.subagent.input_tokens'] ?? 0),
-    cacheRead: Number(
-      span.attributes['agent_trace.subagent.cache_read_tokens'] ?? 0,
-    ),
-    cacheCreation: Number(
-      span.attributes['agent_trace.subagent.cache_creation_tokens'] ?? 0,
-    ),
+    cacheRead: Number(span.attributes['agent_trace.subagent.cache_read_tokens'] ?? 0),
+    cacheCreation: Number(span.attributes['agent_trace.subagent.cache_creation_tokens'] ?? 0),
     output: Number(span.attributes['agent_trace.subagent.output_tokens'] ?? 0),
   };
 }
@@ -210,9 +195,7 @@ function buildInferenceNode(
     const description =
       asString(dt.attributes['agent_trace.subagent.description']) ??
       asString(subagentSpan.attributes['agent_trace.subagent.description']);
-    const requestCount = Number(
-      subagentSpan.attributes['agent_trace.subagent.request_count'] ?? 0,
-    );
+    const requestCount = Number(subagentSpan.attributes['agent_trace.subagent.request_count'] ?? 0);
     dispatches.push({
       dispatchToolSpan: dt,
       toolName,
@@ -283,15 +266,7 @@ function walkSubagentChildren(
     }
     const eventType = child.attributes?.['agent_trace.event_type'];
     if (eventType === 'subagent' || eventType === 'subagent_group') {
-      walkSubagentChildren(
-        child,
-        branchId,
-        parentNodeId,
-        depth,
-        turnNumber,
-        ctx,
-        isUnattached,
-      );
+      walkSubagentChildren(child, branchId, parentNodeId, depth, turnNumber, ctx, isUnattached);
     }
     // Tool spans at this level (no enclosing inference) are unusual; ignore
     // — they don't fit the "inferences as nodes" model.
@@ -301,7 +276,7 @@ function walkSubagentChildren(
 function syntheticLabelFor(turn: Turn): string {
   const raw = (turn.userPrompt ?? '').replace(/\s+/g, ' ').trim();
   if (raw.startsWith('/')) return raw.split(' ')[0];
-  if (raw) return raw.length > 32 ? raw.slice(0, 31) + '…' : raw;
+  if (raw) return raw.length > 32 ? `${raw.slice(0, 31)}…` : raw;
   return '(no prompt)';
 }
 
@@ -334,16 +309,7 @@ function walkTurn(turn: Turn, ctx: BuildContext): void {
   for (const child of turn.root.children) {
     if (child.name === 'inference') {
       pushNode(ctx, 'main', (ordinal) =>
-        buildInferenceNode(
-          child,
-          'main',
-          null,
-          0,
-          turn.turnNumber,
-          ordinal,
-          ctx,
-          false,
-        ),
+        buildInferenceNode(child, 'main', null, 0, turn.turnNumber, ordinal, ctx, false),
       );
       continue;
     }
@@ -373,8 +339,7 @@ function walkTurn(turn: Turn, ctx: BuildContext): void {
     const requestCount = Number(
       subagentChild.attributes['agent_trace.subagent.request_count'] ?? 0,
     );
-    const toolName =
-      asString(child.attributes['agent_trace.tool.name']) ?? child.name;
+    const toolName = asString(child.attributes['agent_trace.tool.name']) ?? child.name;
     synthetic.dispatches.push({
       dispatchToolSpan: child,
       toolName,
@@ -389,11 +354,7 @@ function walkTurn(turn: Turn, ctx: BuildContext): void {
   }
 }
 
-function walkUnattached(
-  group: UnattachedGroup,
-  index: number,
-  ctx: BuildContext,
-): void {
+function walkUnattached(group: UnattachedGroup, index: number, ctx: BuildContext): void {
   const branchId = `unattached:${index}`;
   ctx.branches.set(branchId, []);
   ctx.unattachedBranchIds.push(branchId);
@@ -411,9 +372,27 @@ function fillPrecedingTools(branches: Map<string, InferenceNode[]>): void {
   }
 }
 
-function aggregateSubagentTotals(
+function sumBranchTokens(
   branches: Map<string, InferenceNode[]>,
-): SubagentTotals[] {
+  branchId: string,
+  out: InferenceTokens,
+): void {
+  const inferences = branches.get(branchId);
+  if (!inferences) return;
+  for (const inf of inferences) {
+    out.input += inf.tokens.input;
+    out.cacheRead += inf.tokens.cacheRead;
+    out.cacheCreation += inf.tokens.cacheCreation;
+    out.output += inf.tokens.output;
+    // A subagent inference can itself dispatch nested subagents — recurse
+    // so the parent's totals include its descendants.
+    for (const d of inf.dispatches) {
+      sumBranchTokens(branches, d.childBranchId, out);
+    }
+  }
+}
+
+function aggregateSubagentTotals(branches: Map<string, InferenceNode[]>): SubagentTotals[] {
   const byType = new Map<string, { tokens: InferenceTokens; count: number }>();
   for (const nodes of branches.values()) {
     for (const node of nodes) {
@@ -423,10 +402,7 @@ function aggregateSubagentTotals(
           tokens: { ...ZERO_TOKENS },
           count: 0,
         };
-        slot.tokens.input += d.subagentTokens.input;
-        slot.tokens.cacheRead += d.subagentTokens.cacheRead;
-        slot.tokens.cacheCreation += d.subagentTokens.cacheCreation;
-        slot.tokens.output += d.subagentTokens.output;
+        sumBranchTokens(branches, d.childBranchId, slot.tokens);
         slot.count += 1;
         byType.set(type, slot);
       }
@@ -440,10 +416,7 @@ function aggregateSubagentTotals(
         b.tokens.cacheRead +
         b.tokens.cacheCreation +
         b.tokens.output -
-        (a.tokens.input +
-          a.tokens.cacheRead +
-          a.tokens.cacheCreation +
-          a.tokens.output),
+        (a.tokens.input + a.tokens.cacheRead + a.tokens.cacheCreation + a.tokens.output),
     );
 }
 
@@ -458,9 +431,7 @@ function conversationTotals(turns: readonly Turn[]): InferenceTokens {
   return t;
 }
 
-export function buildInferenceFlowModel(
-  conversation: ConversationSummary,
-): InferenceFlowModel {
+export function buildInferenceFlowModel(conversation: ConversationSummary): InferenceFlowModel {
   const ctx: BuildContext = {
     branches: new Map([['main', []]]),
     unattachedBranchIds: [],

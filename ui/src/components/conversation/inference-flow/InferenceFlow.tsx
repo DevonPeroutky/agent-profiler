@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ConversationSummary, SpanNode } from '@/types';
+import { useMemo } from 'react';
 import { InferenceFlowHeader } from './InferenceFlowHeader';
 import { InferenceGraph } from './graph/InferenceGraph';
 import { buildInferenceFlowModel } from './transforms';
@@ -11,10 +11,7 @@ interface Props {
 }
 
 export function InferenceFlow({ conversation, onSelectSpan }: Props) {
-  const model = useMemo(
-    () => buildInferenceFlowModel(conversation),
-    [conversation],
-  );
+  const model = useMemo(() => buildInferenceFlowModel(conversation), [conversation]);
 
   const mainCount = model.branches.get('main')?.length ?? 0;
   const hasUnattached = model.unattachedBranchIds.length > 0;
@@ -35,11 +32,7 @@ export function InferenceFlow({ conversation, onSelectSpan }: Props) {
       <section>
         <InferenceFlowHeader model={model} />
         <div className="h-[calc(100vh-280px)] min-h-[640px] overflow-hidden rounded-lg border border-border bg-background">
-          <InferenceGraph
-            model={model}
-            conversation={conversation}
-            onSelectSpan={onSelectSpan}
-          />
+          <InferenceGraph model={model} conversation={conversation} onSelectSpan={onSelectSpan} />
         </div>
       </section>
     </TooltipProvider>

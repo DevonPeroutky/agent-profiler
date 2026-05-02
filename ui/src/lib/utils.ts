@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from 'clsx';
+import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
@@ -33,8 +33,7 @@ export function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M`;
 }
 
-const LOCAL_COMMAND_CAVEAT_RE =
-  /<local-command-caveat>[\s\S]*?<\/local-command-caveat>\s*/g;
+const LOCAL_COMMAND_CAVEAT_RE = /<local-command-caveat>[\s\S]*?<\/local-command-caveat>\s*/g;
 
 export function stripLocalCommandCaveat(raw: string): string {
   return raw.replace(LOCAL_COMMAND_CAVEAT_RE, '').trim();

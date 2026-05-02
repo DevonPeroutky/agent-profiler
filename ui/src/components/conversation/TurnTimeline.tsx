@@ -1,14 +1,10 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import type { SpanNode } from '@/types';
 import { cn } from '@/lib/utils';
+import type { SpanNode } from '@/types';
+import { ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { MessageBlock } from './MessageBlock';
 import { ToolCallsBlock } from './ToolCallsBlock';
-import {
-  buildTurnTimeline,
-  type InferenceUsage,
-  type TurnTimelineEntry,
-} from './transforms';
+import { type InferenceUsage, type TurnTimelineEntry, buildTurnTimeline } from './transforms';
 
 interface Props {
   turn: SpanNode;
@@ -54,9 +50,7 @@ function ReasoningBlock({ text }: { text: string }) {
           )}
         />
         <span className="italic">thinking</span>
-        {!open && preview && (
-          <span className="truncate opacity-70">· {preview}</span>
-        )}
+        {!open && preview && <span className="truncate opacity-70">· {preview}</span>}
       </button>
       {open &&
         (text ? (
@@ -72,20 +66,12 @@ function ReasoningBlock({ text }: { text: string }) {
   );
 }
 
-export function TurnTimeline({
-  turn,
-  selectedSpanId,
-  onSelectSpan,
-}: Props) {
+export function TurnTimeline({ turn, selectedSpanId, onSelectSpan }: Props) {
   const entries = useMemo(() => buildTurnTimeline(turn), [turn]);
   const segments = useMemo(() => groupSegments(entries), [entries]);
 
   if (segments.length === 0) {
-    return (
-      <div className="px-4 py-3 text-xs text-muted-foreground">
-        No activity in this turn.
-      </div>
-    );
+    return <div className="px-4 py-3 text-xs text-muted-foreground">No activity in this turn.</div>;
   }
 
   return (
@@ -102,13 +88,7 @@ export function TurnTimeline({
               />
             );
           case 'message':
-            return (
-              <MessageBlock
-                key={`msg-${i}`}
-                text={seg.text}
-                usage={seg.usage}
-              />
-            );
+            return <MessageBlock key={`msg-${i}`} text={seg.text} usage={seg.usage} />;
           case 'reasoning':
             return <ReasoningBlock key={`think-${i}`} text={seg.text} />;
         }

@@ -34,9 +34,7 @@ function deriveAggregates(turns: readonly Turn[]) {
     totalCacheRead += turn.contextTokens.cacheRead;
     totalCacheWrite += turn.contextTokens.cacheCreation;
     totalOutput += turn.contextTokens.output;
-    inferenceCount += Number(
-      turn.root.attributes['agent_trace.turn.request_count'] ?? 0,
-    );
+    inferenceCount += Number(turn.root.attributes['agent_trace.turn.request_count'] ?? 0);
     walkPeakContext(turn.root, walk);
   }
 
@@ -91,8 +89,7 @@ export function ConversationOverview({ conversation }: Props) {
           unit="tok"
           sub={
             <span className="text-xs text-muted-foreground">
-              {fmt.n(Math.round(a.totalOutput / Math.max(1, a.inferenceCount)))}{' '}
-              avg / inference
+              {fmt.n(Math.round(a.totalOutput / Math.max(1, a.inferenceCount)))} avg / inference
             </span>
           }
         />
@@ -110,9 +107,7 @@ export function ConversationOverview({ conversation }: Props) {
         <Metric label="Cache hit rate" value={fmt.pct(a.cacheHitRate)}>
           <StackedBar
             total={1}
-            segments={[
-              { value: a.cacheHitRate, color: 'var(--tok-cache-read)' },
-            ]}
+            segments={[{ value: a.cacheHitRate, color: 'var(--tok-cache-read)' }]}
           />
         </Metric>
         <Metric
@@ -155,9 +150,7 @@ function Metric({ label, value, unit, sub, children }: MetricProps) {
       <div className="font-mono text-2xl font-medium leading-[1.15] tracking-[-0.02em]">
         {value}
         {unit ? (
-          <span className="ml-[3px] text-[13px] font-normal text-muted-foreground">
-            {unit}
-          </span>
+          <span className="ml-[3px] text-[13px] font-normal text-muted-foreground">{unit}</span>
         ) : null}
       </div>
       {sub}

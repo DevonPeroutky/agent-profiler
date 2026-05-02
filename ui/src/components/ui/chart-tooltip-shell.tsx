@@ -1,15 +1,11 @@
-import * as React from 'react';
 import { cn } from '@/lib/utils';
+import type * as React from 'react';
 
 interface ChartTooltipShellProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export function ChartTooltipShell({
-  children,
-  className,
-  ...rest
-}: ChartTooltipShellProps) {
+export function ChartTooltipShell({ children, className, ...rest }: ChartTooltipShellProps) {
   return (
     <div
       className={cn(

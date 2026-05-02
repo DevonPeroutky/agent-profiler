@@ -16,15 +16,12 @@ export interface Segment {
   dispatchAfter: Dispatch | null;
 }
 
-function truncatePromptLabel(
-  raw: string | undefined,
-  max = 280,
-): string | null {
+function truncatePromptLabel(raw: string | undefined, max = 280): string | null {
   if (!raw) return null;
   const cleaned = raw.replace(/\s+/g, ' ').trim();
   if (!cleaned) return null;
   if (cleaned.startsWith('/')) return cleaned.split(' ')[0];
-  return cleaned.length > max ? cleaned.slice(0, max - 1) + '…' : cleaned;
+  return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned;
 }
 
 export function groupMainByTurn(
@@ -41,8 +38,7 @@ export function groupMainByTurn(
       g = {
         id: key,
         turnNumber: tn,
-        promptLabel:
-          truncatePromptLabel(turn?.userPrompt) ?? inf.syntheticLabel ?? null,
+        promptLabel: truncatePromptLabel(turn?.userPrompt) ?? inf.syntheticLabel ?? null,
         isSlashCommand: false,
         span: turn?.root ?? inf.span,
         realInferences: [],

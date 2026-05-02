@@ -1,13 +1,13 @@
-// @ts-nocheck
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+// @ts-nocheck
+import { test } from 'node:test';
 import {
-  toTraces,
   ATTACHMENT_HANDLERS,
   KNOWN_GENERIC_ATTACHMENT_TYPES,
+  toTraces,
 } from '../lib/traces/traces.js';
 
 /**
@@ -44,7 +44,12 @@ const assistant = (content, t = '2026-04-23T12:00:02.000Z', requestId = 'req_1')
       model: 'claude-test',
       content,
       stop_reason: 'end_turn',
-      usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+      usage: {
+        input_tokens: 1,
+        output_tokens: 1,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      },
     },
   });
 
@@ -86,7 +91,12 @@ test('specific-handler attachments do not produce context.attachment events', ()
 test('generic-fallback attachments produce one event each, with type and bytes', () => {
   const generics = [
     { type: 'task_reminder', content: [], itemCount: 0 },
-    { type: 'nested_memory', path: '/p', displayPath: 'p', content: { type: 'Project', body: 'hello' } },
+    {
+      type: 'nested_memory',
+      path: '/p',
+      displayPath: 'p',
+      content: { type: 'Project', body: 'hello' },
+    },
     { type: 'skill_listing', content: '- x: y', skillCount: 1, isInitial: true },
     { type: 'mcp_instructions_delta', addedNames: ['a'], removedNames: [], addedBlocks: ['# a'] },
     { type: 'deferred_tools_delta', addedNames: ['Foo'], removedNames: [], addedLines: [] },
@@ -125,21 +135,22 @@ test('per-turn attachmentBytes equals transcript-side total over un-handled reco
     { type: 'nested_memory', content: { body: 'AAA' } },
     { type: 'skill_listing', content: 'x' },
   ];
-  const turn2Generics = [
-    { type: 'task_reminder', content: ['a', 'b'], itemCount: 2 },
-  ];
+  const turn2Generics = [{ type: 'task_reminder', content: ['a', 'b'], itemCount: 2 }];
   const records = [
     userPrompt('first', '2026-04-23T12:00:00.000Z'),
     ...turn1Generics.map((a) => attachmentRec(a, '2026-04-23T12:00:00.500Z')),
-    attachmentRec({
-      type: 'hook_success',
-      hookName: 'X',
-      hookEvent: 'PreToolUse',
-      stdout: '',
-      stderr: '',
-      exitCode: 0,
-      durationMs: 0,
-    }, '2026-04-23T12:00:00.700Z'),
+    attachmentRec(
+      {
+        type: 'hook_success',
+        hookName: 'X',
+        hookEvent: 'PreToolUse',
+        stdout: '',
+        stderr: '',
+        exitCode: 0,
+        durationMs: 0,
+      },
+      '2026-04-23T12:00:00.700Z',
+    ),
     assistant([{ type: 'text', text: 'one' }], '2026-04-23T12:00:01.000Z', 'req_a'),
     userPrompt('second', '2026-04-23T12:00:02.000Z'),
     ...turn2Generics.map((a) => attachmentRec(a, '2026-04-23T12:00:02.500Z')),
@@ -182,11 +193,14 @@ test('subagent buildSubagentSpan does not surface attachment bytes (out-of-scope
         id: 'msg_main',
         role: 'assistant',
         model: 'claude-test',
-        content: [
-          { type: 'tool_use', id: 'tu_1', name: 'Agent', input: { prompt: 'do thing' } },
-        ],
+        content: [{ type: 'tool_use', id: 'tu_1', name: 'Agent', input: { prompt: 'do thing' } }],
         stop_reason: 'tool_use',
-        usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        usage: {
+          input_tokens: 1,
+          output_tokens: 1,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
       },
     }),
     rec({
@@ -194,9 +208,7 @@ test('subagent buildSubagentSpan does not surface attachment bytes (out-of-scope
       timestamp: '2026-04-23T12:00:03.000Z',
       message: {
         role: 'user',
-        content: [
-          { type: 'tool_result', tool_use_id: 'tu_1', content: 'done', is_error: false },
-        ],
+        content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'done', is_error: false }],
       },
       toolUseResult: { agentId: 'a-sub' },
     }),
@@ -263,20 +275,17 @@ test('catalog-drift: every observed attachment.type is classified', { skip: fals
         if (obj?.type === 'attachment' && obj.attachment?.type) {
           observed.add(obj.attachment.type);
         }
-      } catch { /* ignore torn lines */ }
+      } catch {
+        /* ignore torn lines */
+      }
     }
   }
-  const known = new Set([
-    ...Object.keys(ATTACHMENT_HANDLERS),
-    ...KNOWN_GENERIC_ATTACHMENT_TYPES,
-  ]);
+  const known = new Set([...Object.keys(ATTACHMENT_HANDLERS), ...KNOWN_GENERIC_ATTACHMENT_TYPES]);
   const unknown = [...observed].filter((t) => !known.has(t));
   assert.deepEqual(
     unknown,
     [],
-    `unclassified attachment subtypes: ${unknown.join(', ')}.\n` +
-      `Add a specific handler in ATTACHMENT_HANDLERS or list in ` +
-      `KNOWN_GENERIC_ATTACHMENT_TYPES.`,
+    `unclassified attachment subtypes: ${unknown.join(', ')}.\nAdd a specific handler in ATTACHMENT_HANDLERS or list in KNOWN_GENERIC_ATTACHMENT_TYPES.`,
   );
 });
 
@@ -356,7 +365,7 @@ test('ExitPlanMode tool span carries plan-response attributes when approved', ()
           {
             type: 'tool_result',
             tool_use_id: useId,
-            content: 'User has approved your plan.\n## Approved Plan:\n' + planText,
+            content: `User has approved your plan.\n## Approved Plan:\n${planText}`,
           },
         ],
       },
@@ -456,9 +465,7 @@ test('readJsonl _rowIndex matches array position 1:1 (Debug tab alignment)', asy
     ].join('\n'),
   );
   try {
-    const { readJsonl } = await import(
-      `../lib/traces/transcripts.js?row-idx-${Date.now()}`
-    );
+    const { readJsonl } = await import(`../lib/traces/transcripts.js?row-idx-${Date.now()}`);
   } catch {}
   // The exported surface only includes readTranscript; readJsonl is internal.
   // Test it via readTranscript on a synthetic SessionFile.
@@ -573,12 +580,12 @@ test('user can identify a nested_memory-driven spike from turn fields alone', ()
   assert.equal(turn.attachmentCount, 3);
   assert.ok(turn.attachmentBytes > 8000, 'nested_memory dominates the byte total');
 
-  const events = turn.root.events.filter(
-    (e) => e.name === 'agent_trace.context.attachment',
-  );
+  const events = turn.root.events.filter((e) => e.name === 'agent_trace.context.attachment');
   const top = events.reduce((a, b) =>
     Number(b.attributes?.['agent_trace.attachment.bytes']) >
-    Number(a.attributes?.['agent_trace.attachment.bytes']) ? b : a,
+    Number(a.attributes?.['agent_trace.attachment.bytes'])
+      ? b
+      : a,
   );
   assert.equal(top.attributes?.['agent_trace.attachment.type'], 'nested_memory');
 });

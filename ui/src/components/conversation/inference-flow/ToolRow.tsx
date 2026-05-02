@@ -18,7 +18,7 @@ function toolSummary(span: SpanNode): string {
   if (typeof i !== 'string' || !i.trim()) return '';
   const flat = i.replace(/\s+/g, ' ').trim();
   // Strip leading JSON braces / quoted keys for readability when present.
-  return flat.length > 140 ? flat.slice(0, 139) + '…' : flat;
+  return flat.length > 140 ? `${flat.slice(0, 139)}…` : flat;
 }
 
 export function ToolRow({ span, onSelect }: Props) {
@@ -42,9 +42,7 @@ export function ToolRow({ span, onSelect }: Props) {
       >
         {tone.glyph}
       </span>
-      <span className={cn('shrink-0 font-mono text-[11px]', tone.headerText)}>
-        {name}
-      </span>
+      <span className={cn('shrink-0 font-mono text-[11px]', tone.headerText)}>{name}</span>
       {summary && (
         <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-muted-foreground">
           {summary}

@@ -1,23 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ConversationList } from '@/components/ConversationList';
 import { ConversationDetail } from '@/components/ConversationDetail';
+import { ConversationList } from '@/components/ConversationList';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
 import { useTraces } from '@/hooks/useTraces';
 import { useSidebarCollapsed } from '@/lib/sidebar';
 import { cn } from '@/lib/utils';
-import type {
-  ConversationSummary,
-  SpanNode,
-  TraceSummary,
-  Turn,
-  UnattachedGroup,
-} from '@/types';
+import type { ConversationSummary, SpanNode, TraceSummary, Turn, UnattachedGroup } from '@/types';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
-function groupConversations(
-  traces: TraceSummary[],
-): ConversationSummary[] {
+function groupConversations(traces: TraceSummary[]): ConversationSummary[] {
   const bySession = new Map<string, TraceSummary[]>();
   for (const t of traces) {
     const list = bySession.get(t.sessionId);
@@ -36,8 +28,8 @@ function groupConversations(
     turns.sort((a, b) => a.turnNumber - b.turnNumber);
     unattached.sort((a, b) => a.startMs - b.startMs);
 
-    let startMs = Infinity;
-    let endMs = -Infinity;
+    let startMs = Number.POSITIVE_INFINITY;
+    let endMs = Number.NEGATIVE_INFINITY;
     let toolCount = 0;
     let errorCount = 0;
     for (const t of convTraces) {
@@ -57,9 +49,7 @@ function groupConversations(
       turnCount: turns.length,
       toolCount,
       errorCount,
-      isRunning:
-        turns.some((t) => t.isRunning) ||
-        unattached.some((u) => u.isRunning),
+      isRunning: turns.some((t) => t.isRunning) || unattached.some((u) => u.isRunning),
       cwd: convTraces.find((t) => t.cwd)?.cwd ?? null,
     });
   }
@@ -70,12 +60,9 @@ function groupConversations(
 
 export function App() {
   const { traces, loading, error } = useTraces();
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
-  );
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
-  const { collapsed: sidebarCollapsed, toggle: toggleSidebar } =
-    useSidebarCollapsed();
+  const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
 
   const conversations = useMemo(() => groupConversations(traces), [traces]);
 
@@ -148,12 +135,7 @@ export function App() {
             Failed to load traces: {error}
           </div>
         )}
-        <div
-          className={cn(
-            'flex flex-1 overflow-hidden',
-            sidebarCollapsed && 'pt-10',
-          )}
-        >
+        <div className={cn('flex flex-1 overflow-hidden', sidebarCollapsed && 'pt-10')}>
           <ConversationDetail
             conversation={selected}
             selectedSpan={selectedSpan}

@@ -1,13 +1,8 @@
-import { Position } from '@xyflow/react';
-import type { InferenceFlowEdge, InferenceFlowNode } from './types';
-import type { InferenceFlowModel, InferenceNode } from '../transforms';
-import {
-  groupMainByTurn,
-  segmentInferences,
-  type MainTurnGroup,
-  type Segment,
-} from './turnGroups';
 import type { Turn } from '@/types';
+import { Position } from '@xyflow/react';
+import type { InferenceFlowModel, InferenceNode } from '../transforms';
+import { type MainTurnGroup, type Segment, groupMainByTurn, segmentInferences } from './turnGroups';
+import type { InferenceFlowEdge, InferenceFlowNode } from './types';
 
 const SEGMENT_WIDTH = 320;
 const HEADER_HEIGHT = 28;
@@ -66,9 +61,7 @@ function segmentHeight(inferences: InferenceNode[]): number {
   }
   const blocks = inferences.reduce((s, i) => s + inferenceBlockHeight(i), 0);
   const gaps = (inferences.length - 1) * INNER_GAP;
-  return (
-    HEADER_HEIGHT + SEGMENT_PADDING_TOP + blocks + gaps + SEGMENT_PADDING_BOTTOM
-  );
+  return HEADER_HEIGHT + SEGMENT_PADDING_TOP + blocks + gaps + SEGMENT_PADDING_BOTTOM;
 }
 
 // Lay out a chain of segments: each segment placed vertically; if a segment
@@ -182,9 +175,7 @@ function layoutTurnGroup(
     chainHeight = Math.max(0, cursorY - chainTopY - RAIL_GAP);
   }
 
-  const totalHeight =
-    promptHeight +
-    (chainHeight > 0 ? PROMPT_TO_SEGMENT_GAP + chainHeight : 0);
+  const totalHeight = promptHeight + (chainHeight > 0 ? PROMPT_TO_SEGMENT_GAP + chainHeight : 0);
   return { width: maxRight - offsetX, height: totalHeight };
 }
 
@@ -203,13 +194,7 @@ function layoutMainRail(
 
   let cursorY = startY;
   for (const group of groups) {
-    const box = layoutTurnGroup(
-      group,
-      positions,
-      model,
-      TOP_LEVEL_MARGIN_X,
-      cursorY,
-    );
+    const box = layoutTurnGroup(group, positions, model, TOP_LEVEL_MARGIN_X, cursorY);
     cursorY += box.height + RAIL_GAP;
   }
   return cursorY - RAIL_GAP;
@@ -224,12 +209,7 @@ export function layoutGraph(
   if (nodes.length === 0) return { nodes, edges };
 
   const positions = new Map<string, Box>();
-  const mainEndY = layoutMainRail(
-    model,
-    conversation,
-    positions,
-    TOP_LEVEL_MARGIN_Y,
-  );
+  const mainEndY = layoutMainRail(model, conversation, positions, TOP_LEVEL_MARGIN_Y);
 
   let unattachedY = mainEndY + UNATTACHED_GAP;
   model.unattachedBranchIds.forEach((bid, i) => {

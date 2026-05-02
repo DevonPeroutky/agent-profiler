@@ -71,8 +71,7 @@ export function createOwnerRegistry(): OwnerRegistry {
       if (cached) return cached;
 
       const toolName =
-        parent &&
-        typeof parent.attributes['agent_trace.tool.name'] === 'string'
+        parent && typeof parent.attributes['agent_trace.tool.name'] === 'string'
           ? (parent.attributes['agent_trace.tool.name'] as string)
           : null;
 
@@ -149,11 +148,7 @@ export function flattenOwnedSpans<T extends number | null>(
   ownersSeen: OwnerInfo[],
 ): FlatOwnedSpan<T>[] {
   const out: FlatOwnedSpan<T>[] = [];
-  const visit = (
-    node: SpanNode,
-    parent: SpanNode | null,
-    owner: OwnerInfo,
-  ) => {
+  const visit = (node: SpanNode, parent: SpanNode | null, owner: OwnerInfo) => {
     let nextOwner = owner;
     if (node.name.startsWith('subagent:')) {
       nextOwner = registry.resolve(node, parent);

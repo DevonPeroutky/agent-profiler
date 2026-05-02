@@ -1,5 +1,5 @@
-import type { Edge, Node } from '@xyflow/react';
 import type { SpanNode } from '@/types';
+import type { Edge, Node } from '@xyflow/react';
 import type { Dispatch, InferenceNode } from '../transforms';
 
 export type FlowTone = 'default' | 'subagent' | 'unattached';

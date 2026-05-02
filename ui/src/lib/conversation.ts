@@ -16,9 +16,7 @@ function isPureSlashCommand(text: string): boolean {
 // that is not a pure slash command (`/clear`, `/compact`, …) — those are
 // session controls, not a meaningful conversation label. Returns null if no
 // turn qualifies; callers should fall back to a session-id short.
-export function selectConversationPreview(
-  conversation: ConversationSummary,
-): string | null {
+export function selectConversationPreview(conversation: ConversationSummary): string | null {
   for (const turn of conversation.turns) {
     if (turn.isMeta) continue;
     const stripped = stripLocalCommandCaveat(turn.userPrompt).trim();
@@ -35,16 +33,12 @@ export function selectConversationPreview(
 // carry their content as events; we walk those but stop at `subagent:<type>`
 // boundaries so subagent chatter doesn't get mislabeled as the
 // conversation's first reply.
-export function getFirstAssistantPreview(
-  conversation: ConversationSummary,
-): string | null {
+export function getFirstAssistantPreview(conversation: ConversationSummary): string | null {
   for (const turn of conversation.turns) {
     if (turn.isMeta) continue;
     const candidates = [
       ...(turn.root.events ?? []),
-      ...turn.root.children
-        .filter((c) => c.name === 'inference')
-        .flatMap((c) => c.events ?? []),
+      ...turn.root.children.filter((c) => c.name === 'inference').flatMap((c) => c.events ?? []),
     ];
     const msg = candidates.find((e) => e.name === 'gen_ai.assistant.message');
     if (!msg) continue;
@@ -60,5 +54,5 @@ export function firstSentenceOf(text: string): string {
   if (m && m.index !== undefined && m.index < 180) {
     return oneLine.slice(0, m.index + 1);
   }
-  return oneLine.length <= 180 ? oneLine : oneLine.slice(0, 180) + '…';
+  return oneLine.length <= 180 ? oneLine : `${oneLine.slice(0, 180)}…`;
 }

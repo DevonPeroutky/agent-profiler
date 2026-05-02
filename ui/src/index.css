@@ -26,18 +26,18 @@
     --highlight: 221 83% 53%;
     --radius: 0.5rem;
 
-    --tok-fresh:       #2563eb;
-    --tok-cache-read:  #10b981;
+    --tok-fresh: #2563eb;
+    --tok-cache-read: #10b981;
     --tok-cache-write: #f59e0b;
-    --tok-output:      #ec4899;
+    --tok-output: #ec4899;
 
-    --tool-read:       #3b82f6;
-    --tool-write:      #8b5cf6;
-    --tool-bash:       #ef4444;
-    --tool-search:     #14b8a6;
-    --tool-subagent:   #f97316;
-    --tool-inference:  #18181b;
-    --tool-user:       #71717a;
+    --tool-read: #3b82f6;
+    --tool-write: #8b5cf6;
+    --tool-bash: #ef4444;
+    --tool-search: #14b8a6;
+    --tool-subagent: #f97316;
+    --tool-inference: #18181b;
+    --tool-user: #71717a;
 
     --chart-1: 221 83% 53%;
     --chart-2: 160 84% 39%;
@@ -68,18 +68,18 @@
     --ring: 213 94% 68%;
     --highlight: 213 94% 68%;
 
-    --tok-fresh:       #60a5fa;
-    --tok-cache-read:  #34d399;
+    --tok-fresh: #60a5fa;
+    --tok-cache-read: #34d399;
     --tok-cache-write: #fbbf24;
-    --tok-output:      #f472b6;
+    --tok-output: #f472b6;
 
-    --tool-read:       #60a5fa;
-    --tool-write:      #a78bfa;
-    --tool-bash:       #f87171;
-    --tool-search:     #2dd4bf;
-    --tool-subagent:   #fb923c;
-    --tool-inference:  #fafafa;
-    --tool-user:       #71717a;
+    --tool-read: #60a5fa;
+    --tool-write: #a78bfa;
+    --tool-bash: #f87171;
+    --tool-search: #2dd4bf;
+    --tool-subagent: #fb923c;
+    --tool-inference: #fafafa;
+    --tool-user: #71717a;
 
     --chart-1: 213 94% 68%;
     --chart-2: 160 64% 52%;
@@ -95,8 +95,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: theme('fontFamily.sans');
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-family: theme("fontFamily.sans");
+    font-feature-settings: "rlig" 1, "calt" 1;
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;

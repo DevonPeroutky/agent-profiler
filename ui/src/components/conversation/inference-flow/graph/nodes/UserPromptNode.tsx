@@ -1,9 +1,9 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
+import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { useInferenceGraphContext } from '../context';
 import type { InferenceFlowNode } from '../types';
 
-const HANDLE_CLASSES = '!h-2 !w-2 !border-0 !bg-foreground/30';
+const HANDLE_CLASSES = '!h-1 !w-1 !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0';
 
 export function UserPromptNode({
   data,
@@ -15,12 +15,7 @@ export function UserPromptNode({
 
   return (
     <div className="relative">
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top"
-        className={HANDLE_CLASSES}
-      />
+      <Handle type="target" position={Position.Top} id="top" className={HANDLE_CLASSES} />
       <button
         type="button"
         onClick={() => onSelectSpan?.(span)}
@@ -45,12 +40,7 @@ export function UserPromptNode({
           {label}
         </span>
       </button>
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        className={HANDLE_CLASSES}
-      />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={HANDLE_CLASSES} />
     </div>
   );
 }

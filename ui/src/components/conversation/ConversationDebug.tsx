@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Collapsible,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
   sessionId: string;
@@ -81,8 +78,7 @@ export function ConversationDebug({ sessionId }: Props) {
   }
 
   const { main, subagents } = state.bundle;
-  const total =
-    main.length + subagents.reduce((n, sa) => n + sa.records.length, 0);
+  const total = main.length + subagents.reduce((n, sa) => n + sa.records.length, 0);
 
   return (
     <section>
@@ -113,9 +109,7 @@ function Header({ total }: { total: number | null }) {
         Debug
       </h2>
       <span className="text-xs text-muted-foreground/70">
-        {total === null
-          ? '—'
-          : `${total} record${total === 1 ? '' : 's'} from JSONL`}
+        {total === null ? '—' : `${total} record${total === 1 ? '' : 's'} from JSONL`}
       </span>
     </div>
   );
@@ -131,21 +125,13 @@ function RecordList({ title, subtitle, records }: RecordListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex items-baseline justify-between border-b border-border bg-muted/40 px-4 py-2.5">
-        <span className="font-mono text-[12px] font-semibold text-foreground">
-          {title}
-        </span>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {subtitle}
-        </span>
+        <span className="font-mono text-[12px] font-semibold text-foreground">{title}</span>
+        <span className="font-mono text-[11px] text-muted-foreground">{subtitle}</span>
       </div>
       {records.length === 0 ? (
-        <div className="px-4 py-3 text-[12px] italic text-muted-foreground">
-          (empty)
-        </div>
+        <div className="px-4 py-3 text-[12px] italic text-muted-foreground">(empty)</div>
       ) : (
-        records.map((rec, i) => (
-          <RecordRow key={i} record={rec} index={i} />
-        ))
+        records.map((rec, i) => <RecordRow key={i} record={rec} index={i} />)
       )}
     </div>
   );
@@ -172,9 +158,7 @@ function RecordRow({
           open && 'bg-muted/30',
         )}
       >
-        <span className="font-mono text-[11px] text-muted-foreground/70">
-          #{index}
-        </span>
+        <span className="font-mono text-[11px] text-muted-foreground/70">#{index}</span>
         <TypeBadge type={summary.type} />
         <span className="min-w-0 truncate font-mono text-[11.5px] text-muted-foreground">
           {summary.preview}
@@ -262,5 +246,5 @@ function summarize(record: TranscriptRecord): Summary {
 
 function collapse(s: string): string {
   const flat = s.replace(/\s+/g, ' ').trim();
-  return flat.length <= 200 ? flat : flat.slice(0, 199) + '…';
+  return flat.length <= 200 ? flat : `${flat.slice(0, 199)}…`;
 }

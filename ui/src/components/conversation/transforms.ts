@@ -1,10 +1,5 @@
 import { extractSlashCommand, stripLocalCommandCaveat } from '@/lib/utils';
-import type {
-  ConversationSummary,
-  SpanNode,
-  Turn,
-  UnattachedGroup,
-} from '@/types';
+import type { ConversationSummary, SpanNode, Turn, UnattachedGroup } from '@/types';
 
 export type TurnOutcome =
   | { kind: 'running' }
@@ -54,9 +49,7 @@ function collectDescendantModels(node: SpanNode): string[] {
 // the authoritative definition. Inference spans are wrappers for an API
 // call, not user-facing tool work.
 export function countTools(n: SpanNode): number {
-  const structural =
-    Boolean(n.attributes?.['agent_trace.event_type']) ||
-    n.name === 'inference';
+  const structural = Boolean(n.attributes?.['agent_trace.event_type']) || n.name === 'inference';
   let count = structural ? 0 : 1;
   for (const c of n.children) count += countTools(c);
   return count;
@@ -87,10 +80,7 @@ function collectAssistantContentEvents(turn: SpanNode): SpanNode['events'] {
   return out;
 }
 
-function latestMessageWithStop(
-  events: SpanNode['events'],
-  stop: string,
-): { text: string } | null {
+function latestMessageWithStop(events: SpanNode['events'], stop: string): { text: string } | null {
   let best: { text: string; timeMs: number } | null = null;
   for (const e of events) {
     if (e.name !== 'gen_ai.assistant.message') continue;
@@ -181,9 +171,7 @@ export function collectTurns(conversation: ConversationSummary): TurnEntry[] {
   return conversation.turns.map(buildTurnEntry);
 }
 
-export function collectUnattached(
-  conversation: ConversationSummary,
-): UnattachedEntry[] {
+export function collectUnattached(conversation: ConversationSummary): UnattachedEntry[] {
   return conversation.unattached.map(buildUnattachedEntry);
 }
 
@@ -249,9 +237,7 @@ function inferenceTokens(span: SpanNode): StepTokens {
   return {
     input: Number(span.attributes['gen_ai.usage.input_tokens'] ?? 0),
     cacheRead: Number(span.attributes['gen_ai.usage.cache_read_tokens'] ?? 0),
-    cacheCreation: Number(
-      span.attributes['gen_ai.usage.cache_creation_tokens'] ?? 0,
-    ),
+    cacheCreation: Number(span.attributes['gen_ai.usage.cache_creation_tokens'] ?? 0),
     output: Number(span.attributes['gen_ai.usage.output_tokens'] ?? 0),
   };
 }
@@ -263,8 +249,7 @@ function toolStepKindLabel(name: string): string {
 }
 
 function toolStepLabel(span: SpanNode): string {
-  const name =
-    String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
+  const name = String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
   const subagentType = span.attributes['agent_trace.subagent.type'];
   if (typeof subagentType === 'string' && subagentType) {
     const description = span.attributes['agent_trace.subagent.description'];
@@ -297,14 +282,11 @@ function inferenceSubtitle(span: SpanNode): string {
 }
 
 function truncate(s: string, max: number): string {
-  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
 function isStructuralSpan(span: SpanNode): boolean {
-  return (
-    Boolean(span.attributes['agent_trace.event_type']) ||
-    span.name === 'inference'
-  );
+  return Boolean(span.attributes['agent_trace.event_type']) || span.name === 'inference';
 }
 
 function walkInferenceAndTool(
@@ -326,8 +308,7 @@ function walkInferenceAndTool(
     // inference as their emitting parent — used downstream to look up the
     // correct inferenceIdx, since flat-order proximity breaks when a sibling
     // tool follows a subagent's nested inferences.
-    for (const child of span.children)
-      walkInferenceAndTool(child, depth + 1, emit, span.spanId);
+    for (const child of span.children) walkInferenceAndTool(child, depth + 1, emit, span.spanId);
     return;
   }
   if (!isStructuralSpan(span)) {
@@ -336,8 +317,7 @@ function walkInferenceAndTool(
   // A `subagent:<type>` span is structural and not emitted itself, but its
   // children (the tools/inferences run by the subagent) belong one level
   // deeper so the UI can indent them under their parent Agent dispatch.
-  const childDepth =
-    span.attributes['agent_trace.event_type'] === 'subagent' ? depth + 1 : depth;
+  const childDepth = span.attributes['agent_trace.event_type'] === 'subagent' ? depth + 1 : depth;
   for (const child of span.children)
     walkInferenceAndTool(child, childDepth, emit, parentInferenceSpanId);
 }
@@ -420,8 +400,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
   const out: RawStep[] = [];
   const promptText = (() => {
     const raw = turn.userPrompt;
-    const stripped =
-      turn.turnNumber === 1 ? stripLocalCommandCaveat(raw) : raw.trim();
+    const stripped = turn.turnNumber === 1 ? stripLocalCommandCaveat(raw) : raw.trim();
     return extractSlashCommand(stripped) ?? stripped;
   })();
   if (promptText) {
@@ -441,8 +420,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
   walkInferenceAndTool(turn.root, 0, (kind, span, depth, parentInferenceSpanId) => {
     if (kind === 'inference') {
       const requestId =
-        String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
-        undefined;
+        String(span.attributes['agent_trace.inference.request_id'] ?? '') || undefined;
       const usage = readInferenceUsage(span);
       out.push({
         kind: 'inference',
@@ -507,8 +485,7 @@ function stepsForTurn(turn: Turn): RawStep[] {
         inferenceSpanId: parentInferenceSpanId ?? undefined,
       });
     } else {
-      const name =
-        String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
+      const name = String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
       out.push({
         kind: 'tool',
         timeMs: span.startMs,
@@ -551,8 +528,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
   walkInferenceAndTool(group.root, 0, (kind, span, depth, parentInferenceSpanId) => {
     if (kind === 'inference') {
       const requestId =
-        String(span.attributes['agent_trace.inference.request_id'] ?? '') ||
-        undefined;
+        String(span.attributes['agent_trace.inference.request_id'] ?? '') || undefined;
       out.push({
         kind: 'inference',
         timeMs: span.startMs,
@@ -573,8 +549,7 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
         inferenceSpanId: parentInferenceSpanId ?? undefined,
       });
     } else {
-      const name =
-        String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
+      const name = String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
       out.push({
         kind: 'tool',
         timeMs: span.startMs,
@@ -593,16 +568,9 @@ function stepsForUnattached(group: UnattachedGroup): RawStep[] {
   return out;
 }
 
-export function buildConversationSteps(
-  conversation: ConversationSummary,
-): ConversationStep[] {
+export function buildConversationSteps(conversation: ConversationSummary): ConversationStep[] {
   const steps: ConversationStep[] = [];
-  const push = (
-    traceId: string,
-    turnNumber: number | null,
-    raw: RawStep,
-    seq: number,
-  ) => {
+  const push = (traceId: string, turnNumber: number | null, raw: RawStep, seq: number) => {
     steps.push({
       id: `${traceId}:s${seq}`,
       traceId,
@@ -666,7 +634,7 @@ function collapsePreview(s: string): string {
   if (!flat) return '';
   return flat.length <= TRAJECTORY_PREVIEW_MAX
     ? flat
-    : flat.slice(0, TRAJECTORY_PREVIEW_MAX - 1) + '…';
+    : `${flat.slice(0, TRAJECTORY_PREVIEW_MAX - 1)}…`;
 }
 
 function previewFromEntries(entries: TrajectoryEntry[]): string {
@@ -676,7 +644,7 @@ function previewFromEntries(entries: TrajectoryEntry[]): string {
   for (const e of entries) {
     if (e.kind === 'reasoning') {
       const body = collapsePreview(e.text);
-      return body ? 'thinking · ' + body : 'thinking · encrypted';
+      return body ? `thinking · ${body}` : 'thinking · encrypted';
     }
   }
   const tools = entries.filter(
@@ -684,8 +652,7 @@ function previewFromEntries(entries: TrajectoryEntry[]): string {
   );
   if (tools.length === 0) return '';
   const head =
-    String(tools[0].span.attributes['agent_trace.tool.name'] ?? tools[0].span.name) ||
-    'tool';
+    String(tools[0].span.attributes['agent_trace.tool.name'] ?? tools[0].span.name) || 'tool';
   const rest = tools.length - 1;
   const label = rest > 0 ? `${head} +${rest} more` : head;
   return collapsePreview(`called ${label}`);
@@ -698,9 +665,7 @@ function previewFromEntries(entries: TrajectoryEntry[]): string {
  * turn. Expanded, the row shows everything in chronological order; the
  * collapsed row surfaces the first message-or-tool preview.
  */
-export function buildTrajectorySteps(
-  conversation: ConversationSummary,
-): TrajectoryStep[] {
+export function buildTrajectorySteps(conversation: ConversationSummary): TrajectoryStep[] {
   const flat = buildConversationSteps(conversation);
   const out: TrajectoryStep[] = [];
   let i = 0;

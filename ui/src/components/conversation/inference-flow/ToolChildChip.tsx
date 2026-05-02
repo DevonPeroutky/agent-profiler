@@ -1,8 +1,4 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SpanNode } from '@/types';
 import { fmt } from '../format';
@@ -22,7 +18,7 @@ function toolSummary(span: SpanNode): string {
   const i = span.attributes['agent_trace.tool.input_summary'];
   if (typeof i === 'string' && i.trim()) {
     const flat = i.replace(/\s+/g, ' ').trim();
-    return flat.length > 160 ? flat.slice(0, 159) + '…' : flat;
+    return flat.length > 160 ? `${flat.slice(0, 159)}…` : flat;
   }
   return '';
 }
@@ -63,9 +59,7 @@ export function ToolChildChip({ span, onSelect }: Props) {
           >
             {tone.glyph}
           </span>
-          <span className={cn('font-mono text-[10px]', tone.headerText)}>
-            {name}
-          </span>
+          <span className={cn('font-mono text-[10px]', tone.headerText)}>{name}</span>
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[320px] px-3 py-2">

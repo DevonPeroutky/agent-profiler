@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Copy, Folder, FolderOpen } from 'lucide-react';
-import { cn, formatRelativeTime, formatTimestamp } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getFirstAssistantPreview, selectConversationPreview } from '@/lib/conversation';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { cn, formatRelativeTime, formatTimestamp } from '@/lib/utils';
 import type { ConversationSummary } from '@/types';
+import { ChevronRight, Copy, Folder, FolderOpen } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
   conversations: ConversationSummary[];
@@ -41,9 +37,7 @@ function groupKey(group: ProjectGroup): string {
 // Pure: partition conversations by cwd, sort groups by most-recent endMs,
 // disambiguate colliding basenames with the parent directory. Null-cwd
 // conversations land in a single "unknown" group, sorted last.
-function groupByProject(
-  conversations: ConversationSummary[],
-): ProjectGroup[] {
+function groupByProject(conversations: ConversationSummary[]): ProjectGroup[] {
   const byCwd = new Map<string | null, ConversationSummary[]>();
   for (const c of conversations) {
     const list = byCwd.get(c.cwd);
@@ -83,11 +77,7 @@ function groupByProject(
   return groups;
 }
 
-export function ConversationList({
-  conversations,
-  selectedSessionId,
-  onSelect,
-}: Props) {
+export function ConversationList({ conversations, selectedSessionId, onSelect }: Props) {
   const groups = useMemo(() => groupByProject(conversations), [conversations]);
 
   // Controlled open-state per group, keyed by cwd. Groups default to closed;
@@ -103,17 +93,11 @@ export function ConversationList({
     );
     if (!target) return;
     const key = groupKey(target);
-    setOpenByKey((prev) =>
-      prev[key] ? prev : { ...prev, [key]: true },
-    );
+    setOpenByKey((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   }, [selectedSessionId, groups]);
 
   if (conversations.length === 0) {
-    return (
-      <div className="p-6 text-xs text-muted-foreground">
-        No conversations captured yet.
-      </div>
-    );
+    return <div className="p-6 text-xs text-muted-foreground">No conversations captured yet.</div>;
   }
 
   const isOpen = (key: string) => openByKey[key] === true;
@@ -127,9 +111,7 @@ export function ConversationList({
           <Collapsible
             key={key}
             open={open}
-            onOpenChange={(next) =>
-              setOpenByKey((prev) => ({ ...prev, [key]: next }))
-            }
+            onOpenChange={(next) => setOpenByKey((prev) => ({ ...prev, [key]: next }))}
           >
             <CollapsibleTrigger
               title={group.cwd ?? 'No cwd recorded in transcript'}
@@ -169,9 +151,7 @@ export function ConversationList({
                           active && 'bg-accent/30',
                         )}
                         style={
-                          active
-                            ? { boxShadow: 'inset 3px 0 0 hsl(var(--highlight))' }
-                            : undefined
+                          active ? { boxShadow: 'inset 3px 0 0 hsl(var(--highlight))' } : undefined
                         }
                       >
                         <div className="flex items-center gap-2 min-w-0">

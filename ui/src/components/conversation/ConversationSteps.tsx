@@ -1,10 +1,10 @@
-import { Fragment, useMemo, useState } from 'react';
 import type { ConversationSummary } from '@/types';
+import { Fragment, useMemo, useState } from 'react';
 import {
-  buildConversationSteps,
   type ConversationStep,
   type ConversationStepKind,
   type StepTokens,
+  buildConversationSteps,
 } from './transforms';
 
 interface Props {
@@ -54,8 +54,7 @@ const TOOL_KIND_META: Record<string, Partial<KindMeta>> = {
 
 function metaFor(step: ConversationStep): KindMeta {
   if (step.variant === 'plan-response') {
-    const approved =
-      step.span?.attributes['agent_trace.tool.plan_approved'] === true;
+    const approved = step.span?.attributes['agent_trace.tool.plan_approved'] === true;
     return {
       label: 'Plan response',
       color: 'var(--tool-user)',
@@ -78,22 +77,19 @@ const fmt = {
     if (!Number.isFinite(x)) return '—';
     if (x === 0) return '0';
     if (x < 1000) return String(x);
-    if (x < 1e6)
-      return (
-        (x / 1000).toFixed(x < 10000 ? 2 : 1).replace(/\.0+$/, '') + 'k'
-      );
-    return (x / 1e6).toFixed(2) + 'M';
+    if (x < 1e6) return `${(x / 1000).toFixed(x < 10000 ? 2 : 1).replace(/\.0+$/, '')}k`;
+    return `${(x / 1e6).toFixed(2)}M`;
   },
   pct(x: number): string {
-    return (x * 100).toFixed(1) + '%';
+    return `${(x * 100).toFixed(1)}%`;
   },
   ms(ms: number): string {
     if (ms === 0) return '';
-    if (ms < 1000) return ms + 'ms';
-    if (ms < 60_000) return (ms / 1000).toFixed(1) + 's';
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
     const m = Math.floor(ms / 60_000);
     const s = Math.floor((ms % 60_000) / 1000);
-    return m + 'm ' + String(s).padStart(2, '0') + 's';
+    return `${m}m ${String(s).padStart(2, '0')}s`;
   },
 };
 
@@ -102,7 +98,7 @@ function totalTokens(t: StepTokens): number {
 }
 
 function shortReq(id: string): string {
-  return id.length <= 10 ? id : 'req…' + id.slice(-6);
+  return id.length <= 10 ? id : `req…${id.slice(-6)}`;
 }
 
 // Cross-reference label that lines up with `#N` in the Debug tab. Spans inside
@@ -114,8 +110,7 @@ function rowRef(step: ConversationStep): string {
   const start = attrs['agent_trace.transcript.row_index'];
   if (typeof start !== 'number') return '';
   const end = attrs['agent_trace.transcript.row_index_end'];
-  const range =
-    typeof end === 'number' && end !== start ? `${start}–${end}` : `${start}`;
+  const range = typeof end === 'number' && end !== start ? `${start}–${end}` : `${start}`;
   const scope = attrs['agent_trace.transcript.scope'];
   if (typeof scope === 'string' && scope.startsWith('subagent:')) {
     return `Subagent #${range}`;
@@ -149,10 +144,7 @@ function isSubagentStep(s: ConversationStep): boolean {
 }
 
 export function ConversationSteps({ conversation }: Props) {
-  const steps = useMemo(
-    () => withCumulative(buildConversationSteps(conversation)),
-    [conversation],
-  );
+  const steps = useMemo(() => withCumulative(buildConversationSteps(conversation)), [conversation]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const selected = steps.find((s) => s.id === selectedId) ?? null;
@@ -172,9 +164,8 @@ export function ConversationSteps({ conversation }: Props) {
 
   if (steps.length === 0) return null;
 
-  const turnCount = new Set(
-    steps.filter((s) => s.turnNumber !== null).map((s) => s.turnNumber),
-  ).size;
+  const turnCount = new Set(steps.filter((s) => s.turnNumber !== null).map((s) => s.turnNumber))
+    .size;
 
   const onSelect = (s: CumStep) => {
     if (isSubagentStep(s)) {
@@ -254,13 +245,10 @@ function StepList({ steps, selectedId, collapsed, onSelect }: StepListProps) {
     <div className="overflow-hidden rounded-lg border border-border bg-background">
       {steps.map((s, i) => {
         const next = steps[i + 1];
-        const dividerBeforeNext =
-          next !== undefined && next.turnNumber !== s.turnNumber;
+        const dividerBeforeNext = next !== undefined && next.turnNumber !== s.turnNumber;
         const dividerHere = i > 0 && steps[i - 1]?.turnNumber !== s.turnNumber;
         const hasChildren =
-          next !== undefined &&
-          next.traceId === s.traceId &&
-          next.depth > s.depth;
+          next !== undefined && next.traceId === s.traceId && next.depth > s.depth;
         const isCollapsible = isSubagentStep(s);
         const isCollapsed = collapsed.has(s.id);
         return (
@@ -329,7 +317,16 @@ function Connector({ kind }: { kind: ConnectorKind }) {
   );
 }
 
-function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, hasChildren, isCollapsible, isCollapsed }: StepRowProps) {
+function StepRow({
+  step,
+  connectors,
+  isSelected,
+  onSelect,
+  hideBottomBorder,
+  hasChildren,
+  isCollapsible,
+  isCollapsed,
+}: StepRowProps) {
   const meta = metaFor(step);
   const inputTok = step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
   return (
@@ -337,21 +334,14 @@ function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, has
       type="button"
       onClick={onSelect}
       aria-expanded={isCollapsible ? !isCollapsed : undefined}
-      className={
-        'grid w-full grid-cols-[36px_auto_1fr_auto] items-stretch gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ' +
-        (hideBottomBorder ? '' : 'border-b border-border last:border-b-0 ') +
-        (isSelected ? 'bg-muted' : '')
-      }
+      className={`grid w-full grid-cols-[36px_auto_1fr_auto] items-stretch gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-muted ${hideBottomBorder ? '' : 'border-b border-border last:border-b-0 '}${isSelected ? 'bg-muted' : ''}`}
     >
       <span className="flex items-center justify-between font-mono text-[11px] text-muted-foreground/70">
         <span>{step.turnNumber !== null ? `T${step.turnNumber}` : '—'}</span>
         {isCollapsible ? (
           <span
             aria-hidden
-            className={
-              'inline-block text-[10px] text-muted-foreground transition-transform ' +
-              (isCollapsed ? '' : 'rotate-90')
-            }
+            className={`inline-block text-[10px] text-muted-foreground transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
           >
             ▶
           </span>
@@ -381,7 +371,7 @@ function StepRow({ step, connectors, isSelected, onSelect, hideBottomBorder, has
         </span>
         <span className="block truncate font-mono text-[11.5px] text-muted-foreground">
           {meta.label}
-          {step.durationMs > 0 ? ' · ' + fmt.ms(step.durationMs) : ''}
+          {step.durationMs > 0 ? ` · ${fmt.ms(step.durationMs)}` : ''}
           {step.requestId ? (
             <span title={step.requestId}> · {shortReq(step.requestId)}</span>
           ) : null}
@@ -427,15 +417,24 @@ function StepDetail({ step, steps }: StepDetailProps) {
     );
   }
   const meta = metaFor(step);
-  const stepInput =
-    step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
+  const stepInput = step.tokens.input + step.tokens.cacheRead + step.tokens.cacheCreation;
   const stepTotal = stepInput + step.tokens.output;
   const grand = steps[steps.length - 1]?.cumTotal ?? 0;
   const pctOfTotal = grand === 0 ? 0 : (stepTotal / grand) * 100;
   const segments: Array<{ key: string; value: number; color: string; label: string }> = [
     { key: 'fresh', value: step.tokens.input, color: 'var(--tok-fresh)', label: 'Fresh input' },
-    { key: 'cacheRead', value: step.tokens.cacheRead, color: 'var(--tok-cache-read)', label: 'Cache read' },
-    { key: 'cacheWrite', value: step.tokens.cacheCreation, color: 'var(--tok-cache-write)', label: 'Cache write' },
+    {
+      key: 'cacheRead',
+      value: step.tokens.cacheRead,
+      color: 'var(--tok-cache-read)',
+      label: 'Cache read',
+    },
+    {
+      key: 'cacheWrite',
+      value: step.tokens.cacheCreation,
+      color: 'var(--tok-cache-write)',
+      label: 'Cache write',
+    },
     { key: 'output', value: step.tokens.output, color: 'var(--tok-output)', label: 'Output' },
   ].filter((s) => s.value > 0);
 
@@ -450,9 +449,7 @@ function StepDetail({ step, steps }: StepDetailProps) {
             {meta.glyph}
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold">
-              {step.label}
-            </div>
+            <div className="truncate text-[13px] font-semibold">{step.label}</div>
             <div className="mt-0.5 font-mono text-[11.5px] text-muted-foreground">
               {meta.label}
               {step.turnNumber !== null ? ` · Turn ${step.turnNumber}` : ' · Unattached'}
@@ -466,21 +463,9 @@ function StepDetail({ step, steps }: StepDetailProps) {
         <SectionTitle>Token flow</SectionTitle>
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border">
           <TokCell label="Input (this step)" value={fmt.n(stepInput)} unit="tok" />
-          <TokCell
-            label="Output (this step)"
-            value={fmt.n(step.tokens.output)}
-            unit="tok"
-          />
-          <TokCell
-            label="Context size Σ"
-            value={fmt.n(step.cumInput)}
-            unit="tok"
-          />
-          <TokCell
-            label="% of total run"
-            value={pctOfTotal.toFixed(2)}
-            unit="%"
-          />
+          <TokCell label="Output (this step)" value={fmt.n(step.tokens.output)} unit="tok" />
+          <TokCell label="Context size Σ" value={fmt.n(step.cumInput)} unit="tok" />
+          <TokCell label="% of total run" value={pctOfTotal.toFixed(2)} unit="%" />
         </div>
         {stepTotal > 0 && segments.length > 0 && (
           <>
@@ -540,11 +525,9 @@ function StepPayload({ step }: { step: CumStep }) {
     );
   }
   if (step.kind === 'inference') {
-    const stop =
-      step.span?.attributes['agent_trace.response.stop_reason'] ?? '';
+    const stop = step.span?.attributes['agent_trace.response.stop_reason'] ?? '';
     const model = step.span?.attributes['gen_ai.request.model'] ?? '';
-    const requestId =
-      step.span?.attributes['agent_trace.inference.request_id'] ?? '';
+    const requestId = step.span?.attributes['agent_trace.inference.request_id'] ?? '';
     return (
       <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[12px]">
         <RowKv k="model" v={String(model) || '—'} />
@@ -557,16 +540,13 @@ function StepPayload({ step }: { step: CumStep }) {
   const input = step.span?.attributes['agent_trace.tool.input_summary'] ?? '';
   const output = step.span?.attributes['agent_trace.tool.output_summary'] ?? '';
   if (step.variant === 'plan-response') {
-    const approved =
-      step.span?.attributes['agent_trace.tool.plan_approved'] === true;
+    const approved = step.span?.attributes['agent_trace.tool.plan_approved'] === true;
     const path = step.span?.attributes['agent_trace.tool.plan_file_path'];
     return (
       <div className="space-y-2">
         <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[12px]">
           <RowKv k="outcome" v={approved ? 'Approved' : 'Responded'} />
-          {typeof path === 'string' && path && (
-            <RowKv k="plan file" v={path} />
-          )}
+          {typeof path === 'string' && path && <RowKv k="plan file" v={path} />}
         </dl>
         <div>
           <div className="mb-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground/80">
@@ -628,15 +608,11 @@ function TokCell({
 }) {
   return (
     <div className="bg-background px-3 py-2.5">
-      <div className="text-[10.5px] uppercase tracking-[0.05em] text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[10.5px] uppercase tracking-[0.05em] text-muted-foreground">{label}</div>
       <div className="font-mono text-[16px] font-medium">
         {value}
         {unit ? (
-          <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">
-            {unit}
-          </span>
+          <span className="ml-0.5 text-[11px] font-normal text-muted-foreground">{unit}</span>
         ) : null}
       </div>
     </div>

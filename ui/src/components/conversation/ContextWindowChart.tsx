@@ -1,29 +1,18 @@
-import { useId, useMemo } from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import type { ConversationSummary, Turn } from '@/types';
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { SectionCard } from '@/components/ui/section-card';
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
+import { SectionCard } from '@/components/ui/section-card';
+import type { ConversationSummary, Turn } from '@/types';
+import { useId, useMemo } from 'react';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { fmt } from './format';
 import {
+  type FlatOwnedSpan,
   MAIN_OWNER,
+  type OwnerInfo,
+  type OwnerRegistry,
   createOwnerRegistry,
   finalizeOwnerLabels,
   flattenOwnedSpansForTurn,
-  type OwnerInfo,
-  type OwnerRegistry,
-  type FlatOwnedSpan,
 } from './ownerRegistry';
 
 interface PrecedingAction {
@@ -52,9 +41,7 @@ interface Row {
   isTurnStart: boolean;
 }
 
-function deriveRows(
-  turns: readonly Turn[],
-): { rows: Row[]; owners: OwnerInfo[] } {
+function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] } {
   const registry: OwnerRegistry = createOwnerRegistry();
   const ownersSeen: OwnerInfo[] = [MAIN_OWNER];
   const all: FlatOwnedSpan<number>[] = [];
@@ -81,9 +68,7 @@ function deriveRows(
 
   for (const span of all) {
     if (span.node.name !== 'inference') continue;
-    const reqId = String(
-      span.node.attributes['agent_trace.inference.request_id'] ?? '',
-    );
+    const reqId = String(span.node.attributes['agent_trace.inference.request_id'] ?? '');
     if (lastTurnEmitted !== span.turnNumber) {
       perTurnCounter = 0;
     }
@@ -101,9 +86,7 @@ function deriveRows(
     const cacheCreation = Number(a['gen_ai.usage.cache_creation_tokens'] ?? 0);
     const total = freshInput + cacheRead + cacheCreation;
     const model =
-      typeof a['gen_ai.request.model'] === 'string'
-        ? (a['gen_ai.request.model'] as string)
-        : null;
+      typeof a['gen_ai.request.model'] === 'string' ? (a['gen_ai.request.model'] as string) : null;
 
     // A tool's result enters this inference's prompt iff its tool_result
     // landed (endMs) between the previous same-owner inference and this
@@ -111,8 +94,7 @@ function deriveRows(
     // *inside* the inference that emitted the tool_use, so their startMs
     // sits at or before the previous inference's endMs.
     const precedingActions: PrecedingAction[] = [];
-    const lowerBound =
-      prevInferenceEndByOwner.get(span.owner.key) ?? Number.NEGATIVE_INFINITY;
+    const lowerBound = prevInferenceEndByOwner.get(span.owner.key) ?? Number.NEGATIVE_INFINITY;
     for (const other of all) {
       if (other.startMs >= span.startMs) break;
       if (other === span) continue;
@@ -125,8 +107,7 @@ function deriveRows(
           ? (other.node.attributes['agent_trace.tool.name'] as string)
           : other.node.name;
       const output =
-        typeof other.node.attributes['agent_trace.tool.output_summary'] ===
-          'string'
+        typeof other.node.attributes['agent_trace.tool.output_summary'] === 'string'
           ? (other.node.attributes['agent_trace.tool.output_summary'] as string)
           : '';
       precedingActions.push({ name: toolName, outputChars: output.length });
@@ -209,8 +190,7 @@ function buildGradientStops(rows: Row[]): GradientStop[] {
   let runStart = 0;
   for (let i = 1; i <= rows.length; i += 1) {
     const isLast = i === rows.length;
-    const ownerChanged =
-      isLast || rows[i].ownerKey !== rows[runStart].ownerKey;
+    const ownerChanged = isLast || rows[i].ownerKey !== rows[runStart].ownerKey;
     if (ownerChanged) {
       const color = rows[runStart].ownerColor;
       const startOffset = runStart === 0 ? 0 : runStart / span;
@@ -228,10 +208,7 @@ interface Props {
 }
 
 export function ContextWindowChart({ conversation }: Props) {
-  const { rows, owners } = useMemo(
-    () => deriveRows(conversation.turns),
-    [conversation.turns],
-  );
+  const { rows, owners } = useMemo(() => deriveRows(conversation.turns), [conversation.turns]);
   const chartConfig = useMemo(() => buildChartConfig(owners), [owners]);
   const stops = useMemo(() => buildGradientStops(rows), [rows]);
   const reactId = useId();
@@ -250,10 +227,7 @@ export function ContextWindowChart({ conversation }: Props) {
         </div>
       ) : (
         <ChartContainer config={chartConfig} className="aspect-[16/5] w-full">
-          <AreaChart
-            data={rows}
-            margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-          >
+          <AreaChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <defs>
               <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">
                 {stops.map((s, i) => (
@@ -329,9 +303,7 @@ function OwnerLegend({ owners }: { owners: OwnerInfo[] }) {
             className="h-2 w-2 shrink-0 rounded-[2px]"
             style={{ background: o.color }}
           />
-          <span className="min-w-0 truncate text-muted-foreground">
-            {o.label}
-          </span>
+          <span className="min-w-0 truncate text-muted-foreground">{o.label}</span>
         </div>
       ))}
     </div>
@@ -346,13 +318,7 @@ interface TwoLineTickProps {
   textAnchor?: 'inherit' | 'end' | 'start' | 'middle';
 }
 
-function TwoLineTick({
-  rows,
-  x = 0,
-  y = 0,
-  payload,
-  textAnchor = 'middle',
-}: TwoLineTickProps) {
+function TwoLineTick({ rows, x = 0, y = 0, payload, textAnchor = 'middle' }: TwoLineTickProps) {
   const row = rows.find((r) => r.index === payload?.value);
   if (!row) return null;
   return (
@@ -396,11 +362,7 @@ const COMPOSITION_SEGMENTS = [
 
 function ColorSwatch({ color }: { color: string }) {
   return (
-    <span
-      aria-hidden
-      className="h-2 w-2 shrink-0 rounded-[2px]"
-      style={{ background: color }}
-    />
+    <span aria-hidden className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: color }} />
   );
 }
 
@@ -414,8 +376,7 @@ function ContextTooltip(props: TooltipProps) {
     : '';
   const visibleActions = row.precedingActions.slice(0, ACTION_LIMIT);
   const remaining = row.precedingActions.length - visibleActions.length;
-  const headerLabel =
-    row.ownerKind === 'main' ? 'Main Conversation' : row.ownerLabel;
+  const headerLabel = row.ownerKind === 'main' ? 'Main Conversation' : row.ownerLabel;
 
   return (
     <ChartTooltipShell className="flex flex-col gap-2 py-2">
@@ -469,27 +430,21 @@ function ContextTooltip(props: TooltipProps) {
 
       {row.precedingActions.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-muted-foreground">
-            tool_results included
-          </span>
+          <span className="font-mono text-muted-foreground">tool_results included</span>
           <ul className="flex flex-col gap-0.5">
             {visibleActions.map((a, i) => (
               <li
                 key={`${a.name}-${i}`}
                 className="flex min-w-0 items-center justify-between gap-3"
               >
-                <span className="min-w-0 truncate font-mono text-[11px]">
-                  {a.name}
-                </span>
+                <span className="min-w-0 truncate font-mono text-[11px]">{a.name}</span>
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {a.outputChars > 0 ? `${fmt.n(a.outputChars)} ch` : '—'}
                 </span>
               </li>
             ))}
             {remaining > 0 ? (
-              <li className="text-[10px] text-muted-foreground">
-                +{remaining} more
-              </li>
+              <li className="text-[10px] text-muted-foreground">+{remaining} more</li>
             ) : null}
           </ul>
         </div>
@@ -513,4 +468,3 @@ function ContextTooltip(props: TooltipProps) {
     </ChartTooltipShell>
   );
 }
-

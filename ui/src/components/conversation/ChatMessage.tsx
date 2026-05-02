@@ -1,12 +1,9 @@
-import { ReactNode } from 'react';
-import { ChevronDown, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import {
-  Collapsible,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn, formatRelativeTime, formatTokens } from '@/lib/utils';
+import { ChevronDown, User } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { TurnOutcome } from './transforms';
 
 interface Props {
@@ -49,13 +46,8 @@ function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
           {avatar}
         </span>
       ) : (
-        <Avatar
-          ref={avatarRef}
-          className="relative z-20 h-6 w-6 bg-background"
-        >
-          <AvatarFallback className="bg-muted text-muted-foreground">
-            {avatar}
-          </AvatarFallback>
+        <Avatar ref={avatarRef} className="relative z-20 h-6 w-6 bg-background">
+          <AvatarFallback className="bg-muted text-muted-foreground">{avatar}</AvatarFallback>
         </Avatar>
       )}
       <div className="min-w-0 flex-1">
@@ -67,11 +59,7 @@ function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
         {body !== undefined && body !== null && (
           <div className="mt-1 text-[15px] leading-relaxed">{body}</div>
         )}
-        {badges && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {badges}
-          </div>
-        )}
+        {badges && <div className="mt-2 flex flex-wrap items-center gap-2">{badges}</div>}
       </div>
     </div>
   );
@@ -79,12 +67,7 @@ function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
 
 const userAvatarIcon = <User className="h-3.5 w-3.5" aria-hidden="true" />;
 const claudeAvatarIcon = (
-  <img
-    src="/images/claude-logo.png"
-    alt=""
-    className="h-6 w-6 object-contain"
-    aria-hidden="true"
-  />
+  <img src="/images/claude-logo.png" alt="" className="h-6 w-6 object-contain" aria-hidden="true" />
 );
 
 function outcomeContent(outcome: TurnOutcome): ReactNode {
@@ -137,10 +120,7 @@ export function ChatMessage({
   const activityBadges = hasActivity ? (
     <>
       {isRunning && (
-        <Badge
-          variant="default"
-          className="animate-pulse bg-emerald-600 text-[10px]"
-        >
+        <Badge variant="default" className="animate-pulse bg-emerald-600 text-[10px]">
           running
         </Badge>
       )}
@@ -155,10 +135,7 @@ export function ChatMessage({
         </Badge>
       )}
       {showAttachments && (
-        <Badge
-          variant="outline"
-          className="font-mono text-[10px] text-muted-foreground"
-        >
+        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
           {attachmentCount} att ·{' '}
           {attachmentBytes < 1024
             ? `${attachmentBytes}B`
@@ -181,9 +158,7 @@ export function ChatMessage({
   const assistantBadges = (
     <>
       {activityBadges}
-      <span className="text-[10px] text-muted-foreground">
-        {formatRelativeTime(startMs)}
-      </span>
+      <span className="text-[10px] text-muted-foreground">{formatRelativeTime(startMs)}</span>
       <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
         {isOpen ? 'hide trace' : 'view trace'}
         <ChevronDown
@@ -209,22 +184,20 @@ export function ChatMessage({
     <p className="italic text-muted-foreground">(no prompt)</p>
   );
 
-  const assistantBody = omitUserRow
-    ? body
-      ? (
-          <p
-            className={cn(
-              'whitespace-pre-wrap',
-              bodyMuted ? 'italic text-muted-foreground' : 'text-foreground',
-            )}
-          >
-            {body}
-          </p>
-        )
-      : null
-    : bookend
-      ? <p className="whitespace-pre-wrap text-foreground">{bookend}</p>
-      : null;
+  const assistantBody = omitUserRow ? (
+    body ? (
+      <p
+        className={cn(
+          'whitespace-pre-wrap',
+          bodyMuted ? 'italic text-muted-foreground' : 'text-foreground',
+        )}
+      >
+        {body}
+      </p>
+    ) : null
+  ) : bookend ? (
+    <p className="whitespace-pre-wrap text-foreground">{bookend}</p>
+  ) : null;
 
   return (
     <div
@@ -245,12 +218,7 @@ export function ChatMessage({
       )}
     >
       {!omitUserRow && (
-        <Row
-          avatar={userAvatarIcon}
-          title="You"
-          body={userBody}
-          badges={extraBadges}
-        />
+        <Row avatar={userAvatarIcon} title="You" body={userBody} badges={extraBadges} />
       )}
       <Row
         avatar={claudeAvatarIcon}

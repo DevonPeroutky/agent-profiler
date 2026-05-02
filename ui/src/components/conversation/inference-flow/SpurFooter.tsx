@@ -1,6 +1,6 @@
 import { CornerUpLeft } from 'lucide-react';
 import { fmt } from '../format';
-import { totalTokens, type Dispatch } from './transforms';
+import { type Dispatch, totalTokens } from './transforms';
 
 interface Props {
   dispatch: Dispatch;
@@ -18,9 +18,7 @@ export function SpurFooter({ dispatch }: Props) {
         </span>
       )}
       {total > 0 && (
-        <span className="ml-auto font-mono text-muted-foreground/70">
-          {fmt.n(total)} tok
-        </span>
+        <span className="ml-auto font-mono text-muted-foreground/70">{fmt.n(total)} tok</span>
       )}
     </div>
   );

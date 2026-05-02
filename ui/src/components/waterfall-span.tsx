@@ -1,12 +1,8 @@
-import type { ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDuration } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type { SpanNode } from '@/types';
+import { ChevronDown } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 export interface FlatRow {
   span: SpanNode;
@@ -35,9 +31,7 @@ type TooltipData =
   | { kind: 'kv'; label: string; raw: string }
   | { kind: 'text'; label: string; value: string };
 
-const TOOLTIP_ATTRS: ReadonlyArray<
-  readonly [string, string, TooltipData['kind']]
-> = [
+const TOOLTIP_ATTRS: ReadonlyArray<readonly [string, string, TooltipData['kind']]> = [
   ['agent_trace.tool.input_summary', 'Tool Input', 'kv'],
   ['agent_trace.subagent.task', 'Subagent Task', 'text'],
   ['agent_trace.skill.name', 'Skill', 'text'],
@@ -49,9 +43,7 @@ function getTooltipContent(span: SpanNode): TooltipData | null {
     const v = span.attributes[key];
     if (v == null || v === '') continue;
     const s = String(v);
-    return kind === 'kv'
-      ? { kind, label, raw: s }
-      : { kind, label, value: s };
+    return kind === 'kv' ? { kind, label, raw: s } : { kind, label, value: s };
   }
   return null;
 }
@@ -68,11 +60,7 @@ function formatValue(v: unknown): string {
 function parseKeyValues(raw: string): Array<[string, string]> | null {
   try {
     const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      !Array.isArray(parsed)
-    ) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return Object.entries(parsed).map(([k, v]) => [k, formatValue(v)]);
     }
   } catch {
@@ -81,11 +69,7 @@ function parseKeyValues(raw: string): Array<[string, string]> | null {
   return null;
 }
 
-function formatKindLabel(
-  kind: string,
-  specifier: unknown,
-  fallback?: string,
-): string {
+function formatKindLabel(kind: string, specifier: unknown, fallback?: string): string {
   if (typeof specifier === 'string' && specifier) return `${kind}: ${specifier}`;
   if (fallback) return `${kind}: ${fallback}`;
   return kind;
@@ -94,18 +78,18 @@ function formatKindLabel(
 const LABEL_MAX = 50;
 
 const TOOL_LABEL_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  Bash:  ['command'],
-  Read:  ['file_path'],
-  Edit:  ['file_path'],
+  Bash: ['command'],
+  Read: ['file_path'],
+  Edit: ['file_path'],
   Write: ['file_path'],
-  Glob:  ['pattern'],
-  Grep:  ['pattern'],
+  Glob: ['pattern'],
+  Grep: ['pattern'],
   Agent: ['subagent_type', 'description'],
-  Task:  ['subagent_type', 'description'],
+  Task: ['subagent_type', 'description'],
 };
 
 function truncateLabel(value: string): string {
-  return value.length <= LABEL_MAX ? value : value.slice(0, LABEL_MAX - 1) + '…';
+  return value.length <= LABEL_MAX ? value : `${value.slice(0, LABEL_MAX - 1)}…`;
 }
 
 function basename(path: string): string {
@@ -196,8 +180,7 @@ export function describeSpan(span: SpanNode): SpanDescription {
   }
 
   const toolName =
-    typeof attributes['agent_trace.tool.name'] === 'string' &&
-    attributes['agent_trace.tool.name']
+    typeof attributes['agent_trace.tool.name'] === 'string' && attributes['agent_trace.tool.name']
       ? (attributes['agent_trace.tool.name'] as string)
       : name;
 
@@ -220,12 +203,12 @@ export function describeSpan(span: SpanNode): SpanDescription {
 }
 
 export const LEGEND_ITEMS: ReadonlyArray<{ label: string; cls: string }> = [
-  { label: 'Turn',      cls: 'bg-[var(--tok-fresh)]' },
+  { label: 'Turn', cls: 'bg-[var(--tok-fresh)]' },
   { label: 'Inference', cls: 'bg-[var(--tok-output)]' },
-  { label: 'Subagent',  cls: 'bg-[var(--tool-subagent)]' },
-  { label: 'Skill',     cls: 'bg-[var(--tool-write)]' },
-  { label: 'Hook',      cls: 'bg-[var(--tool-read)]' },
-  { label: 'Tool',      cls: 'bg-[var(--tok-cache-read)]' },
+  { label: 'Subagent', cls: 'bg-[var(--tool-subagent)]' },
+  { label: 'Skill', cls: 'bg-[var(--tool-write)]' },
+  { label: 'Hook', cls: 'bg-[var(--tool-read)]' },
+  { label: 'Tool', cls: 'bg-[var(--tok-cache-read)]' },
 ] as const;
 
 export interface SpanRowProps {
@@ -267,10 +250,7 @@ export function SpanRow({
       )}
       onClick={onSelect}
     >
-      <div
-        className="flex shrink-0 items-center"
-        style={{ paddingLeft: `${depth * 14}px` }}
-      >
+      <div className="flex shrink-0 items-center" style={{ paddingLeft: `${depth * 14}px` }}>
         {hasChildren ? (
           <button
             type="button"
@@ -318,14 +298,8 @@ export function SpanRow({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{row}</TooltipTrigger>
-      <TooltipContent
-        side="bottom"
-        align="start"
-        className="max-w-sm max-h-48 overflow-auto"
-      >
-        <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-          {tip.label}
-        </div>
+      <TooltipContent side="bottom" align="start" className="max-w-sm max-h-48 overflow-auto">
+        <div className="text-[10px] font-semibold uppercase text-muted-foreground">{tip.label}</div>
         {kvRows ? (
           <dl className="mt-1 space-y-1.5">
             {kvRows.map(([k, v]) => (
@@ -333,9 +307,7 @@ export function SpanRow({
                 <dt className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                   {k}
                 </dt>
-                <dd className="whitespace-pre-wrap break-all font-mono text-[11px]">
-                  {v}
-                </dd>
+                <dd className="whitespace-pre-wrap break-all font-mono text-[11px]">{v}</dd>
               </div>
             ))}
           </dl>

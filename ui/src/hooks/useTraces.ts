@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
 import { filterTraces } from '@/lib/trace-filters';
 import type { TraceSummary, TracesResponse } from '@/types';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface UseTracesResult {
   traces: TraceSummary[];

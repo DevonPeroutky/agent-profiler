@@ -1,17 +1,9 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SpanNode } from '@/types';
 import { fmt } from '../format';
 import { ToolChildChip } from './ToolChildChip';
-import {
-  totalTokens,
-  type InferenceNode,
-  type InferenceTokens,
-} from './transforms';
+import { type InferenceNode, type InferenceTokens, totalTokens } from './transforms';
 
 interface Props {
   node: InferenceNode;
@@ -33,24 +25,14 @@ const TOK_SEGMENTS: Array<{
 function StackedBar({ tokens }: { tokens: InferenceTokens }) {
   const total = totalTokens(tokens);
   if (total <= 0) {
-    return (
-      <div className="h-1.5 w-full rounded-full bg-muted/40" aria-hidden="true" />
-    );
+    return <div className="h-1.5 w-full rounded-full bg-muted/40" aria-hidden="true" />;
   }
   return (
-    <div
-      className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40"
-      aria-hidden="true"
-    >
+    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40" aria-hidden="true">
       {TOK_SEGMENTS.map(({ key, cssVar }) => {
         const v = tokens[key];
         if (v <= 0) return null;
-        return (
-          <span
-            key={key}
-            style={{ flex: `${v} 0 0`, background: `var(${cssVar})` }}
-          />
-        );
+        return <span key={key} style={{ flex: `${v} 0 0`, background: `var(${cssVar})` }} />;
       })}
     </div>
   );
@@ -63,7 +45,7 @@ function shortModel(model: string | null): string {
     const minor = m[3] ? `.${m[3]}` : '';
     return `${m[1].toLowerCase()}-${m[2]}${minor}`;
   }
-  return model.length > 18 ? model.slice(0, 17) + '…' : model;
+  return model.length > 18 ? `${model.slice(0, 17)}…` : model;
 }
 
 function modelTone(model: string | null): string {
@@ -107,12 +89,7 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
             <StackedBar tokens={node.tokens} />
             <div className="mt-0.5 flex items-center justify-between font-mono text-[9.5px] text-muted-foreground/70">
               <span>
-                {fmt.n(
-                  node.tokens.input +
-                    node.tokens.cacheRead +
-                    node.tokens.cacheCreation,
-                )}{' '}
-                in
+                {fmt.n(node.tokens.input + node.tokens.cacheRead + node.tokens.cacheCreation)} in
               </span>
               <span>{fmt.n(node.tokens.output)} out</span>
             </div>
@@ -127,9 +104,7 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
                   style={{ background: `var(${cssVar})` }}
                 />
                 <span className="flex-1 text-muted-foreground">{label}</span>
-                <span className="font-mono tabular-nums">
-                  {fmt.n(node.tokens[key])}
-                </span>
+                <span className="font-mono tabular-nums">{fmt.n(node.tokens[key])}</span>
               </div>
             ))}
             <div className="mt-1 flex items-center justify-between border-t border-border/40 pt-1 text-[11px] font-medium">
@@ -142,11 +117,7 @@ export function InferenceNodeCard({ node, demoted, onSelect }: Props) {
       {node.emittedTools.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1 border-t border-border/40 pt-1.5">
           {node.emittedTools.map((tool) => (
-            <ToolChildChip
-              key={tool.spanId}
-              span={tool}
-              onSelect={onSelect}
-            />
+            <ToolChildChip key={tool.spanId} span={tool} onSelect={onSelect} />
           ))}
         </div>
       )}

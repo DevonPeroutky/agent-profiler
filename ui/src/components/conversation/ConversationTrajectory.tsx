@@ -1,29 +1,21 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Brain, Check, ChevronDown, Copy, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-} from '@/components/ui/collapsible';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary, SpanNode } from '@/types';
+import { Brain, Check, ChevronDown, Copy, User } from 'lucide-react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { fmt } from './format';
 import { toolTone } from './inference-flow/tool-tone';
 import {
-  buildTrajectorySteps,
   type InferenceUsage,
   type StepTokens,
   type TrajectoryEntry,
   type TrajectoryInference,
   type TrajectoryStep,
+  buildTrajectorySteps,
 } from './transforms';
 
 interface Props {
@@ -31,10 +23,7 @@ interface Props {
 }
 
 export function ConversationTrajectory({ conversation }: Props) {
-  const steps = useMemo(
-    () => buildTrajectorySteps(conversation),
-    [conversation],
-  );
+  const steps = useMemo(() => buildTrajectorySteps(conversation), [conversation]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   if (steps.length === 0) {
@@ -106,8 +95,7 @@ function StepBar({
     >
       {steps.map((s) => {
         const flexBasis = Math.max(s.durationMs, 250);
-        const intensity =
-          maxDuration > 0 ? Math.min(1, s.durationMs / maxDuration) : 0;
+        const intensity = maxDuration > 0 ? Math.min(1, s.durationMs / maxDuration) : 0;
         const background =
           s.role === 'user'
             ? 'var(--tool-user, hsl(220 70% 60%))'
@@ -148,30 +136,21 @@ interface RowProps {
 
 const userAvatarIcon = <User className="h-3.5 w-3.5" aria-hidden="true" />;
 const claudeAvatarIcon = (
-  <img
-    src="/images/claude-logo.png"
-    alt=""
-    className="h-6 w-6 object-contain"
-    aria-hidden="true"
-  />
+  <img src="/images/claude-logo.png" alt="" className="h-6 w-6 object-contain" aria-hidden="true" />
 );
 
 function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
   const isUser = step.role === 'user';
   const innerCells = (
     <>
-      <span className="font-mono text-[11px] text-muted-foreground/70">
-        #{step.index}
-      </span>
+      <span className="font-mono text-[11px] text-muted-foreground/70">#{step.index}</span>
       {isUser ? (
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
           {userAvatarIcon}
         </span>
       ) : (
         <Avatar className="h-6 w-6 bg-background">
-          <AvatarFallback className="bg-background">
-            {claudeAvatarIcon}
-          </AvatarFallback>
+          <AvatarFallback className="bg-background">{claudeAvatarIcon}</AvatarFallback>
         </Avatar>
       )}
       <span className="flex items-center gap-2">
@@ -188,9 +167,7 @@ function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
         </Badge>
       </span>
       <span className="min-w-0 truncate text-[13px] text-foreground">
-        {step.preview || (
-          <span className="italic text-muted-foreground">(no message)</span>
-        )}
+        {step.preview || <span className="italic text-muted-foreground">(no message)</span>}
       </span>
       <span className="min-w-[48px] text-right font-mono text-[11px] text-muted-foreground/80">
         {step.durationMs > 0 ? fmt.ms(step.durationMs) : ''}
@@ -241,18 +218,14 @@ function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
 }
 
 function isDispatchSpan(span: SpanNode): boolean {
-  return span.children.some(
-    (c) => c.attributes?.['agent_trace.event_type'] === 'subagent',
-  );
+  return span.children.some((c) => c.attributes?.['agent_trace.event_type'] === 'subagent');
 }
 
 // Sum across all subagent children. Multiple children occur when a single
 // Agent tool call spawned parallel subagents — totals represent the aggregate
 // cost of *this dispatch*.
 function dispatchSubagentTokens(span: SpanNode): StepTokens | null {
-  const kids = span.children.filter(
-    (c) => c.attributes?.['agent_trace.event_type'] === 'subagent',
-  );
+  const kids = span.children.filter((c) => c.attributes?.['agent_trace.event_type'] === 'subagent');
   if (kids.length === 0) return null;
   const num = (v: unknown) => {
     const n = Number(v ?? 0);
@@ -272,18 +245,13 @@ function dispatchSubagentTokens(span: SpanNode): StepTokens | null {
   return { input, output, cacheRead, cacheCreation };
 }
 
-function isSubagentEntry(
-  entry: TrajectoryEntry,
-  inferences: TrajectoryInference[],
-): boolean {
+function isSubagentEntry(entry: TrajectoryEntry, inferences: TrajectoryInference[]): boolean {
   return inferences[entry.inferenceIdx]?.subagent === true;
 }
 
 function ExpandedEntries({ step }: { step: TrajectoryStep }) {
   if (step.entries.length === 0) {
-    return (
-      <p className="text-[12px] italic text-muted-foreground">(no content)</p>
-    );
+    return <p className="text-[12px] italic text-muted-foreground">(no content)</p>;
   }
   const nodes: ReactNode[] = [];
   let i = 0;
@@ -292,10 +260,7 @@ function ExpandedEntries({ step }: { step: TrajectoryStep }) {
     if (entry.kind === 'tool' && isDispatchSpan(entry.span)) {
       const nested: TrajectoryEntry[] = [];
       let j = i + 1;
-      while (
-        j < step.entries.length &&
-        isSubagentEntry(step.entries[j], step.inferences)
-      ) {
+      while (j < step.entries.length && isSubagentEntry(step.entries[j], step.inferences)) {
         nested.push(step.entries[j]);
         j++;
       }
@@ -309,9 +274,7 @@ function ExpandedEntries({ step }: { step: TrajectoryStep }) {
       i = j;
       continue;
     }
-    nodes.push(
-      <EntryBlock key={i} entry={entry} inferences={step.inferences} />,
-    );
+    nodes.push(<EntryBlock key={i} entry={entry} inferences={step.inferences} />);
     i++;
   }
   return <div className="space-y-2.5">{nodes}</div>;
@@ -344,8 +307,7 @@ function EntryBlock({
     const tokens = inferences[entry.inferenceIdx]?.tokens;
     return <MessageBlock text={entry.text} tokens={tokens} />;
   }
-  if (entry.kind === 'reasoning')
-    return <ThinkingBlock text={entry.text} usage={entry.usage} />;
+  if (entry.kind === 'reasoning') return <ThinkingBlock text={entry.text} usage={entry.usage} />;
   return <ToolCallBlock span={entry.span} />;
 }
 
@@ -369,13 +331,8 @@ function MessageBlock({
 }) {
   const hasTokens =
     !!tokens &&
-    (tokens.input > 0 ||
-      tokens.cacheRead > 0 ||
-      tokens.cacheCreation > 0 ||
-      tokens.output > 0);
-  const inputTotal = tokens
-    ? tokens.input + tokens.cacheRead + tokens.cacheCreation
-    : 0;
+    (tokens.input > 0 || tokens.cacheRead > 0 || tokens.cacheCreation > 0 || tokens.output > 0);
+  const inputTotal = tokens ? tokens.input + tokens.cacheRead + tokens.cacheCreation : 0;
   return (
     <div className="flex flex-col">
       <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-foreground">
@@ -391,18 +348,13 @@ function MessageBlock({
           <TooltipContent side="left" className="px-3 py-2">
             <div className="flex flex-col gap-1">
               {TOK_ROWS.map(({ key, label, cssVar }) => (
-                <div
-                  key={key}
-                  className="flex items-center gap-3 text-[11px]"
-                >
+                <div key={key} className="flex items-center gap-3 text-[11px]">
                   <span
                     className="h-2 w-2 shrink-0 rounded-sm"
                     style={{ background: `var(${cssVar})` }}
                   />
                   <span className="flex-1 text-muted-foreground">{label}</span>
-                  <span className="font-mono tabular-nums">
-                    {fmt.n(tokens[key])}
-                  </span>
+                  <span className="font-mono tabular-nums">{fmt.n(tokens[key])}</span>
                 </div>
               ))}
             </div>
@@ -425,21 +377,15 @@ function ThinkingBlock({
     usage.inputTokens > 0 ||
     usage.cacheReadTokens > 0 ||
     usage.cacheCreationTokens > 0;
-  const inputTotal =
-    usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
+  const inputTotal = usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
   return (
     <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2">
-      <Brain
-        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
+      <Brain className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
         thinking
       </span>
       {text ? (
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">
-          {text}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">{text}</span>
       ) : (
         <span className="flex-1 font-mono text-[11px] italic text-muted-foreground/60">
           encrypted
@@ -454,9 +400,7 @@ function ThinkingBlock({
   );
 }
 
-type ParsedParams =
-  | { kind: 'kv'; entries: [string, string][] }
-  | { kind: 'text'; text: string };
+type ParsedParams = { kind: 'kv'; entries: [string, string][] } | { kind: 'text'; text: string };
 
 function parseParams(raw: string): ParsedParams {
   if (!raw) return { kind: 'text', text: '' };
@@ -468,9 +412,9 @@ function parseParams(raw: string): ParsedParams {
       !Array.isArray(obj) &&
       Object.keys(obj).length > 0
     ) {
-      const entries: [string, string][] = Object.entries(
-        obj as Record<string, unknown>,
-      ).map(([k, v]) => [k, formatValue(v)]);
+      const entries: [string, string][] = Object.entries(obj as Record<string, unknown>).map(
+        ([k, v]) => [k, formatValue(v)],
+      );
       return { kind: 'kv', entries };
     }
     return { kind: 'text', text: JSON.stringify(obj, null, 2) };
@@ -486,7 +430,7 @@ function formatValue(v: unknown): string {
 }
 
 function truncateText(s: string, max: number): string {
-  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
 function skillNameFromInput(inputRaw: string): string | null {
@@ -503,11 +447,7 @@ function skillNameFromInput(inputRaw: string): string | null {
   return null;
 }
 
-function dispatchTitleSuffix(
-  toolName: string,
-  span: SpanNode,
-  inputRaw: string,
-): string | null {
+function dispatchTitleSuffix(toolName: string, span: SpanNode, inputRaw: string): string | null {
   // Skill dispatches: prefer the skill name (e.g. "rhino8:design") from the
   // tool input. The synthetic Skill spans for slash commands carry it on
   // `agent_trace.tool.slash_command` instead.
@@ -522,8 +462,7 @@ function dispatchTitleSuffix(
   if (typeof typeAttr !== 'string' || !typeAttr.trim()) return null;
   const type = typeAttr.trim();
   const descAttr = span.attributes['agent_trace.subagent.description'];
-  const desc =
-    typeof descAttr === 'string' && descAttr.trim() ? descAttr.trim() : '';
+  const desc = typeof descAttr === 'string' && descAttr.trim() ? descAttr.trim() : '';
   return desc ? `${type}: ${truncateText(desc, 60)}` : type;
 }
 
@@ -534,22 +473,15 @@ function ToolCallBlock({
   span: SpanNode;
   children?: ReactNode;
 }) {
-  const name =
-    String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
-  const inputRaw = String(
-    span.attributes['agent_trace.tool.input_summary'] ?? '',
-  );
-  const outputRaw = String(
-    span.attributes['agent_trace.tool.output_summary'] ?? '',
-  );
+  const name = String(span.attributes['agent_trace.tool.name'] ?? span.name) || 'tool';
+  const inputRaw = String(span.attributes['agent_trace.tool.input_summary'] ?? '');
+  const outputRaw = String(span.attributes['agent_trace.tool.output_summary'] ?? '');
   const tone = toolTone(name);
   const params = parseParams(inputRaw);
   const subagentSuffix = dispatchTitleSuffix(name, span, inputRaw);
   const [open, setOpen] = useState(false);
   return (
-    <div
-      className={cn('overflow-hidden rounded-md border bg-background', tone.border)}
-    >
+    <div className={cn('overflow-hidden rounded-md border bg-background', tone.border)}>
       <div
         className={cn(
           'flex items-center justify-between px-3 py-1.5',
@@ -581,9 +513,7 @@ function ToolCallBlock({
           </span>
           <span className={cn('shrink-0', tone.headerText)}>{name}</span>
           {subagentSuffix && (
-            <span className="min-w-0 truncate text-muted-foreground/80">
-              · {subagentSuffix}
-            </span>
+            <span className="min-w-0 truncate text-muted-foreground/80">· {subagentSuffix}</span>
           )}
         </button>
         <div className="flex items-center gap-3">
@@ -615,11 +545,7 @@ function ToolCallBlock({
                 </pre>
               )}
             </ToolSection>
-            <ToolSection
-              label="Output"
-              copyText={outputRaw || undefined}
-              collapsible
-            >
+            <ToolSection label="Output" copyText={outputRaw || undefined} collapsible>
               <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 px-3 py-2.5 font-mono text-[11.5px] leading-[1.55] text-foreground">
                 {outputRaw || '—'}
               </pre>
@@ -663,10 +589,7 @@ function ToolSection({
           >
             <ChevronDown
               aria-hidden="true"
-              className={cn(
-                'h-3 w-3 transition-transform duration-150',
-                !open && '-rotate-90',
-              )}
+              className={cn('h-3 w-3 transition-transform duration-150', !open && '-rotate-90')}
             />
             <span>{label}</span>
           </button>
@@ -685,8 +608,7 @@ function ToolSection({
 function ToolMeta({ span }: { span: SpanNode }) {
   const ms = span.durationMs;
   const bytesAttr = span.attributes['agent_trace.tool.output_bytes'];
-  const bytes =
-    typeof bytesAttr === 'number' && Number.isFinite(bytesAttr) ? bytesAttr : 0;
+  const bytes = typeof bytesAttr === 'number' && Number.isFinite(bytesAttr) ? bytesAttr : 0;
   if (ms <= 0 && bytes <= 0) return null;
   return (
     <div className="mr-1 flex items-center gap-2 font-mono text-[10.5px] text-muted-foreground">

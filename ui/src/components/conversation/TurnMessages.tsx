@@ -1,14 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { TraceWaterfall } from '@/components/TraceWaterfall';
+import { Badge } from '@/components/ui/badge';
 import type { ConversationSummary, SpanNode } from '@/types';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { TurnTimeline } from './TurnTimeline';
-import {
-  collectTurns,
-  collectUnattached,
-  hasVisibleActivity,
-} from './transforms';
+import { collectTurns, collectUnattached, hasVisibleActivity } from './transforms';
 
 interface Props {
   conversation: ConversationSummary;
@@ -18,20 +14,13 @@ interface Props {
 
 const RAIL_TOP_INSET = 24; // matches Tailwind `top-6` = 1.5rem
 
-export function TurnMessages({
-  conversation,
-  selectedSpanId,
-  onSelectSpan,
-}: Props) {
+export function TurnMessages({ conversation, selectedSpanId, onSelectSpan }: Props) {
   const allTurns = useMemo(() => collectTurns(conversation), [conversation]);
   const turns = useMemo(
     () => allTurns.filter((t) => !t.isMeta).filter(hasVisibleActivity),
     [allTurns],
   );
-  const unattached = useMemo(
-    () => collectUnattached(conversation),
-    [conversation],
-  );
+  const unattached = useMemo(() => collectUnattached(conversation), [conversation]);
   const newestKey =
     unattached.length > 0
       ? unattached[unattached.length - 1].key
@@ -107,79 +96,77 @@ export function TurnMessages({
       </div>
       <div ref={railContainerRef} className="relative">
         {railHeight !== null && (
-        <div
-          aria-hidden
-          style={{ height: railHeight }}
-          className="pointer-events-none absolute left-[calc(1.5rem+12px-0.5px)] top-6 z-10 w-px bg-border"
-        />
-      )}
-      {turns.map((entry, i) => {
-        const isLastEntry = !lastEntryIsUnattached && i === lastTurnIndex;
-        return (
-          <ChatMessage
-            key={entry.key}
-            body={entry.prompt ?? ''}
-            isOpen={expanded.has(entry.key)}
-            onToggle={() => toggle(entry.key)}
-            startMs={entry.turnSpan.startMs}
-            isRunning={Boolean(
-              entry.turnSpan.attributes?.['agent_trace.in_progress'],
-            )}
-            toolCount={entry.toolCount}
-            models={entry.models}
-            contextTokens={entry.contextTokens}
-            attachmentCount={entry.attachmentCount}
-            attachmentBytes={entry.attachmentBytes}
-            finalMode={entry.finalMode}
-            outcome={entry.outcome}
-            assistantAvatarRef={isLastEntry ? lastAvatarRef : undefined}
-            extraBadges={
-              entry.isMeta ? (
+          <div
+            aria-hidden
+            style={{ height: railHeight }}
+            className="pointer-events-none absolute left-[calc(1.5rem+12px-0.5px)] top-6 z-10 w-px bg-border"
+          />
+        )}
+        {turns.map((entry, i) => {
+          const isLastEntry = !lastEntryIsUnattached && i === lastTurnIndex;
+          return (
+            <ChatMessage
+              key={entry.key}
+              body={entry.prompt ?? ''}
+              isOpen={expanded.has(entry.key)}
+              onToggle={() => toggle(entry.key)}
+              startMs={entry.turnSpan.startMs}
+              isRunning={Boolean(entry.turnSpan.attributes?.['agent_trace.in_progress'])}
+              toolCount={entry.toolCount}
+              models={entry.models}
+              contextTokens={entry.contextTokens}
+              attachmentCount={entry.attachmentCount}
+              attachmentBytes={entry.attachmentBytes}
+              finalMode={entry.finalMode}
+              outcome={entry.outcome}
+              assistantAvatarRef={isLastEntry ? lastAvatarRef : undefined}
+              extraBadges={
+                entry.isMeta ? (
+                  <Badge variant="outline" className="text-[10px]">
+                    meta
+                  </Badge>
+                ) : null
+              }
+            >
+              <TurnTimeline
+                turn={entry.turnSpan}
+                selectedSpanId={selectedSpanId}
+                onSelectSpan={onSelectSpan}
+              />
+            </ChatMessage>
+          );
+        })}
+        {unattached.map((entry, i) => {
+          const isLastEntry = i === lastUnattachedIndex;
+          return (
+            <ChatMessage
+              key={entry.key}
+              body={`${entry.subagentCount} subagent${entry.subagentCount === 1 ? '' : 's'} dispatched without parent turn`}
+              bodyMuted
+              omitUserRow
+              isOpen={expanded.has(entry.key)}
+              onToggle={() => toggle(entry.key)}
+              startMs={entry.groupSpan.startMs}
+              toolCount={entry.toolCount}
+              models={entry.models}
+              attachmentCount={0}
+              attachmentBytes={0}
+              assistantAvatarRef={isLastEntry ? lastAvatarRef : undefined}
+              extraBadges={
                 <Badge variant="outline" className="text-[10px]">
-                  meta
+                  {entry.subagentCount} subagent
+                  {entry.subagentCount === 1 ? '' : 's'}
                 </Badge>
-              ) : null
-            }
-          >
-            <TurnTimeline
-              turn={entry.turnSpan}
-              selectedSpanId={selectedSpanId}
-              onSelectSpan={onSelectSpan}
-            />
-          </ChatMessage>
-        );
-      })}
-      {unattached.map((entry, i) => {
-        const isLastEntry = i === lastUnattachedIndex;
-        return (
-          <ChatMessage
-            key={entry.key}
-            body={`${entry.subagentCount} subagent${entry.subagentCount === 1 ? '' : 's'} dispatched without parent turn`}
-            bodyMuted
-            omitUserRow
-            isOpen={expanded.has(entry.key)}
-            onToggle={() => toggle(entry.key)}
-            startMs={entry.groupSpan.startMs}
-            toolCount={entry.toolCount}
-            models={entry.models}
-            attachmentCount={0}
-            attachmentBytes={0}
-            assistantAvatarRef={isLastEntry ? lastAvatarRef : undefined}
-            extraBadges={
-              <Badge variant="outline" className="text-[10px]">
-                {entry.subagentCount} subagent
-                {entry.subagentCount === 1 ? '' : 's'}
-              </Badge>
-            }
-          >
-            <TraceWaterfall
-              roots={entry.groupSpan.children}
-              selectedSpanId={selectedSpanId}
-              onSelectSpan={onSelectSpan}
-            />
-          </ChatMessage>
-        );
-      })}
+              }
+            >
+              <TraceWaterfall
+                roots={entry.groupSpan.children}
+                selectedSpanId={selectedSpanId}
+                onSelectSpan={onSelectSpan}
+              />
+            </ChatMessage>
+          );
+        })}
       </div>
     </section>
   );

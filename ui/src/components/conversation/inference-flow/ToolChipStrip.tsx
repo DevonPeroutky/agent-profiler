@@ -1,8 +1,4 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SpanNode } from '@/types';
 import { fmt } from '../format';
@@ -23,7 +19,7 @@ function toolSummary(span: SpanNode): string {
   const i = span.attributes['agent_trace.tool.input_summary'];
   if (typeof i === 'string' && i.trim()) {
     const flat = i.replace(/\s+/g, ' ').trim();
-    return flat.length > 120 ? flat.slice(0, 119) + '…' : flat;
+    return flat.length > 120 ? `${flat.slice(0, 119)}…` : flat;
   }
   return '';
 }
@@ -81,9 +77,7 @@ export function ToolChipStrip({ tools, onSelect, max = 6 }: Props) {
         );
       })}
       {overflow > 0 && (
-        <span className="font-mono text-[10px] text-muted-foreground/70">
-          +{overflow} more
-        </span>
+        <span className="font-mono text-[10px] text-muted-foreground/70">+{overflow} more</span>
       )}
     </div>
   );

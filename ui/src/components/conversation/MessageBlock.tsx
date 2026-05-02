@@ -1,10 +1,6 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import type { InferenceUsage } from './transforms';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { fmt } from './format';
+import type { InferenceUsage } from './transforms';
 
 interface Props {
   text: string;
@@ -53,18 +49,13 @@ export function MessageBlock({ text, usage }: Props) {
           <TooltipContent side="left" className="px-3 py-2">
             <div className="flex flex-col gap-1">
               {TOK_ROWS.map(({ key, label, cssVar }) => (
-                <div
-                  key={key}
-                  className="flex items-center gap-3 text-[11px]"
-                >
+                <div key={key} className="flex items-center gap-3 text-[11px]">
                   <span
                     className="h-2 w-2 shrink-0 rounded-sm"
                     style={{ background: `var(${cssVar})` }}
                   />
                   <span className="flex-1 text-muted-foreground">{label}</span>
-                  <span className="font-mono tabular-nums">
-                    {fmt.n(usage[key])}
-                  </span>
+                  <span className="font-mono tabular-nums">{fmt.n(usage[key])}</span>
                 </div>
               ))}
             </div>

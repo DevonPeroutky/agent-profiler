@@ -10,11 +10,7 @@ interface Props {
 export function ToolCallsBlock({ spans, selectedSpanId, onSelectSpan }: Props) {
   return (
     <div className="mx-4 my-2 overflow-hidden">
-      <TraceWaterfall
-        roots={spans}
-        selectedSpanId={selectedSpanId}
-        onSelectSpan={onSelectSpan}
-      />
+      <TraceWaterfall roots={spans} selectedSpanId={selectedSpanId} onSelectSpan={onSelectSpan} />
     </div>
   );
 }

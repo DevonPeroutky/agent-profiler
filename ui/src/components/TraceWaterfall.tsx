@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import type { SpanNode } from '@/types';
+import { useMemo, useState } from 'react';
 import {
+  type FlatRow,
   LEGEND_ITEMS,
   SpanRow,
   describeSpan,
   flattenSpanTree,
-  type FlatRow,
 } from './waterfall-span';
 
 interface Props {
@@ -24,13 +24,7 @@ interface RowViewProps {
   onSelectSpan: (span: SpanNode) => void;
 }
 
-function DurationRows({
-  rows,
-  collapsed,
-  selectedSpanId,
-  onToggle,
-  onSelectSpan,
-}: RowViewProps) {
+function DurationRows({ rows, collapsed, selectedSpanId, onToggle, onSelectSpan }: RowViewProps) {
   const window = useMemo(() => {
     if (rows.length === 0) return { start: 0, size: 1 };
     const start = Math.min(...rows.map((r) => r.span.startMs));
@@ -45,10 +39,7 @@ function DurationRows({
         const { color: baseColor } = describeSpan(span);
         const color = hasError ? 'bg-destructive' : baseColor;
         const startPct = ((span.startMs - window.start) / window.size) * 100;
-        const widthPct = Math.max(
-          1.5,
-          ((span.endMs - span.startMs) / window.size) * 100,
-        );
+        const widthPct = Math.max(1.5, ((span.endMs - span.startMs) / window.size) * 100);
         const endPct = startPct + widthPct;
         return (
           <SpanRow
@@ -80,17 +71,10 @@ function DurationRows({
   );
 }
 
-export function TraceWaterfall({
-  roots,
-  selectedSpanId,
-  onSelectSpan,
-}: Props) {
+export function TraceWaterfall({ roots, selectedSpanId, onSelectSpan }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const sortedRoots = useMemo(
-    () => [...roots].sort((a, b) => a.startMs - b.startMs),
-    [roots],
-  );
+  const sortedRoots = useMemo(() => [...roots].sort((a, b) => a.startMs - b.startMs), [roots]);
 
   const rows = useMemo(() => {
     const out: FlatRow[] = [];
@@ -107,11 +91,7 @@ export function TraceWaterfall({
     });
 
   if (sortedRoots.length === 0) {
-    return (
-      <div className="px-4 py-3 text-xs text-muted-foreground">
-        No spans in this turn.
-      </div>
-    );
+    return <div className="px-4 py-3 text-xs text-muted-foreground">No spans in this turn.</div>;
   }
 
   return (

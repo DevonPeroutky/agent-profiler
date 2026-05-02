@@ -1,4 +1,6 @@
 import type { ConversationSummary, Turn } from '@/types';
+import type { Dispatch, InferenceFlowModel } from '../transforms';
+import { type MainTurnGroup, type Segment, groupMainByTurn, segmentInferences } from './turnGroups';
 import type {
   EdgeTone,
   FlowTone,
@@ -8,13 +10,6 @@ import type {
   SubagentSegmentData,
   UserPromptData,
 } from './types';
-import type { Dispatch, InferenceFlowModel } from '../transforms';
-import {
-  groupMainByTurn,
-  segmentInferences,
-  type MainTurnGroup,
-  type Segment,
-} from './turnGroups';
 
 interface RailExit {
   id: string;
@@ -105,9 +100,7 @@ function emitSegmentChain(args: EmitChainArgs): ChainResult | null {
     if (nodeType === 'subagentSegment') {
       const data: SubagentSegmentData = {
         ...baseData,
-        ...(isFirstSegment && firstSegmentDispatch
-          ? { dispatch: firstSegmentDispatch }
-          : {}),
+        ...(isFirstSegment && firstSegmentDispatch ? { dispatch: firstSegmentDispatch } : {}),
       };
       acc.nodes.push({
         id: nodeId,
@@ -313,8 +306,6 @@ export function buildGraph(
 } {
   const acc: Acc = { nodes: [], edges: [], edgeIds: new Set() };
   processMainRail(model, conversation, acc);
-  model.unattachedBranchIds.forEach((bid, i) =>
-    processUnattachedBranch(bid, i, model, acc),
-  );
+  model.unattachedBranchIds.forEach((bid, i) => processUnattachedBranch(bid, i, model, acc));
   return { nodes: acc.nodes, edges: acc.edges };
 }

@@ -1,13 +1,7 @@
-import { Copy, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   cn,
   formatDuration,
@@ -16,6 +10,7 @@ import {
   stripLocalCommandCaveat,
 } from '@/lib/utils';
 import type { SpanNode } from '@/types';
+import { Copy, X } from 'lucide-react';
 
 interface Props {
   span: SpanNode;
@@ -118,19 +113,12 @@ export function SpanDetail({ span, onClose }: Props) {
   );
   const idRows = ID_KEYS.flatMap(([key, label]) => {
     const value = span.attributes[key];
-    return typeof value === 'string' && value.length > 0
-      ? [{ label, value }]
-      : [];
+    return typeof value === 'string' && value.length > 0 ? [{ label, value }] : [];
   });
 
   return (
     <div className="flex flex-col">
-      <DetailHeader
-        span={span}
-        hasError={hasError}
-        idRows={idRows}
-        onClose={onClose}
-      />
+      <DetailHeader span={span} hasError={hasError} idRows={idRows} onClose={onClose} />
 
       <div className="space-y-4 px-4 py-4 text-xs">
         <div className="grid grid-cols-2 gap-2">
@@ -138,9 +126,7 @@ export function SpanDetail({ span, onClose }: Props) {
           <Stat label="Started" value={formatTimestamp(span.startMs)} mono />
         </div>
 
-        {hasError && span.status?.message && (
-          <ErrorBanner message={span.status.message} />
-        )}
+        {hasError && span.status?.message && <ErrorBanner message={span.status.message} />}
 
         {isTurn && <TokenPanel span={span} />}
 
@@ -169,14 +155,10 @@ function DetailHeader({
     <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate font-mono text-sm font-semibold">
-            {span.name}
-          </h3>
+          <h3 className="truncate font-mono text-sm font-semibold">{span.name}</h3>
           {hasError && <Badge variant="destructive">error</Badge>}
         </div>
-        <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-          {span.spanId}
-        </p>
+        <p className="mt-1 font-mono text-[10px] text-muted-foreground">{span.spanId}</p>
         {idRows.map((row) => (
           <IdRow key={row.label} label={row.label} value={row.value} />
         ))}
@@ -208,9 +190,7 @@ function IdRow({ label, value }: { label: string; value: string }) {
 function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3">
-      <div className="text-[10px] font-semibold uppercase text-destructive">
-        Error
-      </div>
+      <div className="text-[10px] font-semibold uppercase text-destructive">Error</div>
       <p className="mt-1 text-destructive-foreground">{message}</p>
     </div>
   );
@@ -238,9 +218,7 @@ function OtherAttrs({ entries }: { entries: [string, unknown][] }) {
   return (
     <div>
       <Separator className="my-3" />
-      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-        Attributes
-      </div>
+      <div className="text-[10px] font-semibold uppercase text-muted-foreground">Attributes</div>
       <dl className="mt-2 space-y-1.5">
         {entries.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[1fr_2fr] gap-2">
@@ -259,15 +237,10 @@ function EventsList({ events }: { events: SpanNode['events'] }) {
   return (
     <div>
       <Separator className="my-3" />
-      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-        Events
-      </div>
+      <div className="text-[10px] font-semibold uppercase text-muted-foreground">Events</div>
       <ul className="mt-2 space-y-1.5">
         {events.map((e, i) => (
-          <li
-            key={i}
-            className="rounded border border-border/60 bg-muted/30 p-2"
-          >
+          <li key={i} className="rounded border border-border/60 bg-muted/30 p-2">
             <div className="font-mono text-[10px]">{e.name}</div>
             {e.attributes && Object.keys(e.attributes).length > 0 && (
               <pre className="mt-1 whitespace-pre-wrap break-all text-[10px] text-muted-foreground">
@@ -297,9 +270,7 @@ function TokenPanel({ span }: { span: SpanNode }) {
 
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-        Context
-      </div>
+      <div className="text-[10px] font-semibold uppercase text-muted-foreground">Context</div>
       <TooltipProvider delayDuration={150}>
         <div className="mt-2 space-y-2">
           {bars.map((b) => (
@@ -310,9 +281,7 @@ function TokenPanel({ span }: { span: SpanNode }) {
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
         {legendItems.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5">
-            <span
-              className={cn('h-2 w-2 shrink-0 rounded-sm', s.colorClass)}
-            />
+            <span className={cn('h-2 w-2 shrink-0 rounded-sm', s.colorClass)} />
             <span className="text-[10px] text-muted-foreground">{s.label}</span>
           </div>
         ))}
@@ -335,14 +304,9 @@ function TokenBar({ label, segments, total, maxTotal }: TokenBarProps) {
   const rowWidthPct = total > 0 ? (total / maxTotal) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="w-14 shrink-0 text-[10px] uppercase text-muted-foreground">
-        {label}
-      </span>
+      <span className="w-14 shrink-0 text-[10px] uppercase text-muted-foreground">{label}</span>
       <div className="relative h-4 flex-1 min-w-0 overflow-hidden rounded-sm bg-muted/40">
-        <div
-          className="flex h-full"
-          style={{ width: `${rowWidthPct}%` }}
-        >
+        <div className="flex h-full" style={{ width: `${rowWidthPct}%` }}>
           {total > 0 &&
             segments
               .filter((s) => s.value > 0)
@@ -355,16 +319,14 @@ function TokenBar({ label, segments, total, maxTotal }: TokenBarProps) {
                     />
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-[11px]">
-                    <span className="font-semibold">{s.label}:</span>{' '}
-                    {s.value.toLocaleString()} tokens
+                    <span className="font-semibold">{s.label}:</span> {s.value.toLocaleString()}{' '}
+                    tokens
                   </TooltipContent>
                 </Tooltip>
               ))}
         </div>
       </div>
-      <span className="w-14 shrink-0 text-right font-mono text-[11px]">
-        {formatTokens(total)}
-      </span>
+      <span className="w-14 shrink-0 text-right font-mono text-[11px]">{formatTokens(total)}</span>
     </div>
   );
 }
@@ -391,13 +353,10 @@ function Stat({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</div>
       <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border/60 bg-muted/30 p-2 text-[11px]">
         {value}
       </pre>
     </div>
   );
 }
-

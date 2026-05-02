@@ -1,6 +1,6 @@
-import { Separator } from '@/components/ui/separator';
-import { ConversationView } from '@/components/conversation/ConversationView';
 import { SpanDetail } from '@/components/SpanDetail';
+import { ConversationView } from '@/components/conversation/ConversationView';
+import { Separator } from '@/components/ui/separator';
 import type { ConversationSummary, SpanNode } from '@/types';
 
 interface Props {

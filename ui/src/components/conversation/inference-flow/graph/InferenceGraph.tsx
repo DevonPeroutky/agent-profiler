@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import type { ConversationSummary, SpanNode } from '@/types';
 import {
   Background,
   BackgroundVariant,
@@ -6,7 +6,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
-import type { ConversationSummary, SpanNode } from '@/types';
+import { useMemo } from 'react';
 import type { InferenceFlowModel } from '../transforms';
 import { buildGraph } from './buildGraph';
 import { InferenceGraphContext } from './context';

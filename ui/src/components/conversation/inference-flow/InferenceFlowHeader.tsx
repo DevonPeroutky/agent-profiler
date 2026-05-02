@@ -1,14 +1,10 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { fmt } from '../format';
 import {
-  totalTokens,
   type InferenceFlowModel,
   type InferenceTokens,
   type SubagentTotals,
+  totalTokens,
 } from './transforms';
 
 interface Props {
@@ -101,17 +97,10 @@ function TokenStrip({
             {SEGMENTS.map(({ key, cssVar }) => {
               const v = tokens[key];
               if (v <= 0) return null;
-              return (
-                <span
-                  key={key}
-                  style={{ flex: `${v} 0 0`, background: `var(${cssVar})` }}
-                />
-              );
+              return <span key={key} style={{ flex: `${v} 0 0`, background: `var(${cssVar})` }} />;
             })}
           </span>
-          <span className="font-mono text-[11px] text-foreground">
-            {fmt.n(total)} tok
-          </span>
+          <span className="font-mono text-[11px] text-foreground">{fmt.n(total)} tok</span>
         </div>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="px-3 py-2">
@@ -123,9 +112,7 @@ function TokenStrip({
                 style={{ background: `var(${cssVar})` }}
               />
               <span className="flex-1 text-muted-foreground">{label}</span>
-              <span className="font-mono tabular-nums">
-                {fmt.n(tokens[key])}
-              </span>
+              <span className="font-mono tabular-nums">{fmt.n(tokens[key])}</span>
             </div>
           ))}
         </div>
@@ -140,18 +127,12 @@ function SubagentChip({ totals }: { totals: SubagentTotals }) {
     <Tooltip>
       <TooltipTrigger asChild>
         <span className="inline-flex items-center gap-1.5 rounded border border-violet-500/30 bg-violet-500/[0.06] px-1.5 py-0.5">
-          <span className="font-mono text-[10px] text-violet-500">
-            {totals.type}
-          </span>
-          <span className="font-mono text-[9.5px] text-muted-foreground/80">
-            {totals.count}
-          </span>
+          <span className="font-mono text-[10px] text-violet-500">{totals.type}</span>
+          <span className="font-mono text-[9.5px] text-muted-foreground/80">{totals.count}</span>
         </span>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="px-3 py-2">
-        <div className="mb-1 font-mono text-[11px] font-medium text-violet-500">
-          {totals.type}
-        </div>
+        <div className="mb-1 font-mono text-[11px] font-medium text-violet-500">{totals.type}</div>
         <div className="flex flex-col gap-1">
           {SEGMENTS.map(({ key, label, cssVar }) => (
             <div key={key} className="flex items-center gap-3 text-[11px]">
@@ -160,13 +141,13 @@ function SubagentChip({ totals }: { totals: SubagentTotals }) {
                 style={{ background: `var(${cssVar})` }}
               />
               <span className="flex-1 text-muted-foreground">{label}</span>
-              <span className="font-mono tabular-nums">
-                {fmt.n(totals.tokens[key])}
-              </span>
+              <span className="font-mono tabular-nums">{fmt.n(totals.tokens[key])}</span>
             </div>
           ))}
           <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-1 text-[11px]">
-            <span>{totals.count} dispatch{totals.count === 1 ? '' : 'es'}</span>
+            <span>
+              {totals.count} dispatch{totals.count === 1 ? '' : 'es'}
+            </span>
             <span className="font-mono">{fmt.n(total)} tok</span>
           </div>
         </div>

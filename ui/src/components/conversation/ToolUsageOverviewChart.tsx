@@ -1,30 +1,20 @@
-import { useMemo, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import type { ConversationSummary, SpanNode } from '@/types';
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from '@/components/ui/chart';
-import { SectionCard } from '@/components/ui/section-card';
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
+import { SectionCard } from '@/components/ui/section-card';
 import { cn } from '@/lib/utils';
+import type { ConversationSummary, SpanNode } from '@/types';
+import { useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { fmt } from './format';
 import {
+  type FlatOwnedSpan,
   MAIN_OWNER,
+  type OwnerInfo,
+  type OwnerRegistry,
   createOwnerRegistry,
   extractSkillName,
   finalizeOwnerLabels,
   flattenOwnedSpans,
-  type FlatOwnedSpan,
-  type OwnerInfo,
-  type OwnerRegistry,
 } from './ownerRegistry';
 
 type Metric = 'count' | 'bytes';
@@ -85,10 +75,30 @@ function parseBashCommand(inputSummary: string | undefined): string | null {
 // must land in the same row.
 const MULTIPLEXER_VERBS = new Set([
   // subcommand-style
-  'git', 'gh', 'npm', 'pnpm', 'yarn', 'cargo', 'kubectl', 'docker', 'make',
-  'bundle', 'pip', 'pip3', 'brew', 'helm', 'rustup',
+  'git',
+  'gh',
+  'npm',
+  'pnpm',
+  'yarn',
+  'cargo',
+  'kubectl',
+  'docker',
+  'make',
+  'bundle',
+  'pip',
+  'pip3',
+  'brew',
+  'helm',
+  'rustup',
   // script-runner-style (second token is the script path or `-c` / `-m`)
-  'python', 'python3', 'node', 'bun', 'deno', 'ruby', 'bash', 'sh',
+  'python',
+  'python3',
+  'node',
+  'bun',
+  'deno',
+  'ruby',
+  'bash',
+  'sh',
 ]);
 
 // Strip leading `sudo` and any `KEY=VAL ` env assignments, then return the
@@ -130,7 +140,7 @@ function collapsePathLike(s: string): string {
 const MAX_LABEL_CHARS = 28;
 
 function ellipsize(s: string, max: number): string {
-  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
 }
 
 // MCP tool names look like:
@@ -246,12 +256,7 @@ function buildRows(
   const all: FlatOwnedSpan[] = [];
 
   for (const turn of conversation.turns) {
-    for (const f of flattenOwnedSpans(
-      turn.root,
-      turn.turnNumber,
-      registry,
-      ownersSeen,
-    )) {
+    for (const f of flattenOwnedSpans(turn.root, turn.turnNumber, registry, ownersSeen)) {
       all.push(f);
     }
   }
@@ -282,10 +287,7 @@ function buildRows(
     if (!isToolSpan(f.node)) continue;
     const gk = groupKeyForSpan(f.node);
     const bytesAttr = f.node.attributes['agent_trace.tool.output_bytes'];
-    const bytes =
-      typeof bytesAttr === 'number' && Number.isFinite(bytesAttr)
-        ? bytesAttr
-        : 0;
+    const bytes = typeof bytesAttr === 'number' && Number.isFinite(bytesAttr) ? bytesAttr : 0;
 
     let bucket = buckets.get(gk.key);
     if (!bucket) {
@@ -433,10 +435,7 @@ interface Props {
 
 export function ToolUsageOverviewChart({ conversation }: Props) {
   const [metric, setMetric] = useState<Metric>('bytes');
-  const { rows, owners } = useMemo(
-    () => buildRows(conversation, metric),
-    [conversation, metric],
-  );
+  const { rows, owners } = useMemo(() => buildRows(conversation, metric), [conversation, metric]);
   const chartConfig = useMemo(() => buildChartConfig(owners), [owners]);
 
   if (conversation.turns.length === 0 && conversation.unattached.length === 0) {
@@ -475,9 +474,7 @@ export function ToolUsageOverviewChart({ conversation }: Props) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={4}
-                tickFormatter={(v: number) =>
-                  metric === 'bytes' ? fmt.bytes(v) : fmt.n(v)
-                }
+                tickFormatter={(v: number) => (metric === 'bytes' ? fmt.bytes(v) : fmt.n(v))}
               />
               <YAxis
                 type="category"
@@ -563,9 +560,7 @@ function OwnerLegend({ owners }: { owners: OwnerInfo[] }) {
             className="h-2 w-2 shrink-0 rounded-[2px]"
             style={{ background: o.color }}
           />
-          <span className="min-w-0 truncate text-muted-foreground">
-            {o.label}
-          </span>
+          <span className="min-w-0 truncate text-muted-foreground">{o.label}</span>
         </div>
       ))}
     </div>
@@ -577,11 +572,7 @@ interface TooltipProps {
   payload?: Array<{ payload?: ToolRow }>;
 }
 
-function ToolTooltip({
-  metric,
-  active,
-  payload,
-}: TooltipProps & { metric: Metric }) {
+function ToolTooltip({ metric, active, payload }: TooltipProps & { metric: Metric }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
   if (!row) return null;
@@ -595,9 +586,7 @@ function ToolTooltip({
         </span>
       </div>
       {row.toolName !== row.displayLabel ? (
-        <div className="-mt-1 font-mono text-[10px] text-muted-foreground/80">
-          {row.toolName}
-        </div>
+        <div className="-mt-1 font-mono text-[10px] text-muted-foreground/80">{row.toolName}</div>
       ) : null}
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-t border-border/50 pt-2 font-mono text-[11px]">
@@ -606,9 +595,7 @@ function ToolTooltip({
         <span className="text-muted-foreground">Total bytes</span>
         <span className="text-right tabular-nums">{fmt.bytes(row.bytes)}</span>
         <span className="text-muted-foreground">Mean / call</span>
-        <span className="text-right tabular-nums">
-          {fmt.bytes(Math.round(row.meanBytes))}
-        </span>
+        <span className="text-right tabular-nums">{fmt.bytes(Math.round(row.meanBytes))}</span>
         <span className="text-muted-foreground">Max / call</span>
         <span className="text-right tabular-nums">{fmt.bytes(row.maxBytes)}</span>
       </div>
@@ -620,18 +607,13 @@ function ToolTooltip({
           </div>
           <ul className="flex flex-col gap-0.5">
             {row.owners.map((o) => (
-              <li
-                key={o.ownerKey}
-                className="flex min-w-0 items-center gap-2 text-[11px]"
-              >
+              <li key={o.ownerKey} className="flex min-w-0 items-center gap-2 text-[11px]">
                 <span
                   aria-hidden
                   className="h-2 w-2 shrink-0 rounded-[2px]"
                   style={{ background: o.ownerColor }}
                 />
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {o.ownerLabel}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{o.ownerLabel}</span>
                 <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
                   {fmt.n(o.count)} · {fmt.bytes(o.bytes)}
                 </span>

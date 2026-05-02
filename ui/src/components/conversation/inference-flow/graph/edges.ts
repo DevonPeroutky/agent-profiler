@@ -1,13 +1,10 @@
-import { MarkerType, type EdgeMarker } from '@xyflow/react';
+import { type EdgeMarker, MarkerType } from '@xyflow/react';
 import type { EdgeTone, InferenceFlowEdge } from './types';
 
 const STROKE_DEFAULT = 'rgba(148, 163, 184, 0.6)';
 const STROKE_VIOLET = 'rgba(139, 92, 246, 0.7)';
 
-const STYLE_BY_TONE: Record<
-  EdgeTone,
-  { stroke: string; dashed?: boolean }
-> = {
+const STYLE_BY_TONE: Record<EdgeTone, { stroke: string; dashed?: boolean }> = {
   default: { stroke: STROKE_DEFAULT },
   subagent: { stroke: STROKE_VIOLET },
   dispatch: { stroke: STROKE_VIOLET },

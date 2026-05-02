@@ -17,9 +17,7 @@ export function SpurHeader({ dispatch, onSelectSpan }: Props) {
       <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-violet-500">
         {dispatch.toolName}
       </span>
-      <span className="truncate font-mono text-[11px] text-foreground">
-        {subtype}
-      </span>
+      <span className="truncate font-mono text-[11px] text-foreground">{subtype}</span>
       {dispatch.description && (
         <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
           · {dispatch.description}
