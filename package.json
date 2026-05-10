@@ -15,7 +15,7 @@
   "license": "Apache-2.0",
   "author": "Devon Peroutky",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "workspaces": ["ui"],
   "bin": {
@@ -27,15 +27,12 @@
     "build": "npm run build -w ui",
     "preview": "npm run preview -w ui",
     "start": "node bin/agent-profiler.js",
-    "test": "node --test \"test/**/*.test.js\"",
+    "test": "node --test test/*.test.js",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "update-notifier": "^7.3.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

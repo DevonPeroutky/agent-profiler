@@ -110,7 +110,16 @@ async function serveStatic(urlPath, res) {
   }
   try {
     const buf = await readFile(target);
-    res.writeHead(200, { 'Content-Type': MIME[ext(target)] ?? 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[ext(target)] ?? 'application/octet-stream',
+      // Localhost-only ≠ safe: the UI renders arbitrary transcript content.
+      // Lock the document down so a stray innerHTML or markdown escape can't
+      // inject scripts. `'unsafe-inline'` for styles is required because
+      // Vite-built CSS and Radix UI use inline style attributes for
+      // animations/positioning. Scripts are bundle-only — no inline allowed.
+      'Content-Security-Policy':
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'",
+    });
     res.end(buf);
   } catch (e) {
     if (target.endsWith('index.html')) {
@@ -155,21 +164,7 @@ function openBrowser(url) {
   });
 }
 
-async function checkForUpdate() {
-  if (process.env.AGENT_PROFILER_NO_UPDATE_CHECK) return;
-  try {
-    const { default: updateNotifier } = await import('update-notifier');
-    updateNotifier({ pkg: PKG, updateCheckInterval: 1000 * 60 * 60 * 24 }).notify({
-      defer: false,
-      isGlobal: true,
-    });
-  } catch {
-    // update-notifier is best-effort; never break the CLI over it
-  }
-}
-
 const opts = args();
-await checkForUpdate();
 
 const server = createServer(async (req, res) => {
   const start = Date.now();

@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22]
+        node: [20, 22]
 
     steps:
       - uses: actions/checkout@v4
@@ -33,24 +33,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Pre-existing typecheck errors in test/attachments.test.js — surfaced
-      # but non-blocking until the test types are caught up. Remove
-      # continue-on-error once test/attachments.test.js is fixed.
       - name: Typecheck
         run: npm run typecheck
-        continue-on-error: true
 
       - name: Build
         run: npm run build
 
-      - name: Smoke test (validates the published binary)
-        run: node --test test/bin.smoke.test.js
-
-      # Pre-existing failures in test/attachments.test.js — surfaced but
-      # non-blocking. Remove continue-on-error once those are fixed.
       - name: Full test suite
         run: npm test
-        continue-on-error: true
 
       - name: Verify pack contents
         if: matrix.node == 20
@@ -61,3 +51,23 @@ jobs:
             echo "::error::npm pack would include source/test files"
             exit 1
           fi
+
+      # Pack the tarball, install it globally, and smoke-test the installed
+      # binary. Catches missing entries in `files` that the local smoke test
+      # can't see (the local test runs against the working tree).
+      - name: Pack-and-install smoke test
+        if: matrix.node == 20
+        run: |
+          npm pack
+          npm install -g ./agent-profiler-*.tgz
+          agent-profiler --version
+          agent-profiler --port 0 --no-open > /tmp/cli.log 2>&1 &
+          PID=$!
+          for i in 1 2 3 4 5; do
+            sleep 1
+            PORT=$(grep -oE 'localhost:[0-9]+' /tmp/cli.log | head -1 | cut -d: -f2)
+            [ -n "$PORT" ] && break
+          done
+          [ -n "$PORT" ] || (cat /tmp/cli.log; kill $PID; exit 1)
+          curl -fsS "http://localhost:$PORT/api/health" || (kill $PID; exit 1)
+          kill $PID
