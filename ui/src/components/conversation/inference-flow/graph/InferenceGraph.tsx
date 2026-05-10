@@ -3,10 +3,12 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
 } from '@xyflow/react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { InferenceFlowModel } from '../transforms';
 import { buildGraph } from './buildGraph';
 import { InferenceGraphContext } from './context';
@@ -15,6 +17,7 @@ import { layoutGraph } from './layoutGraph';
 import { SubagentSegmentNode } from './nodes/SubagentSegmentNode';
 import { TurnSegmentNode } from './nodes/TurnSegmentNode';
 import { UserPromptNode } from './nodes/UserPromptNode';
+import type { InferenceFlowNode } from './types';
 
 const nodeTypes = {
   turnSegment: TurnSegmentNode,
@@ -28,8 +31,53 @@ interface Props {
   onSelectSpan?: (span: SpanNode) => void;
 }
 
+const FIT_VIEW_OPTIONS = { padding: 0.15, maxZoom: 1 } as const;
+
+// ReactFlow's `fitView` prop fires once during mount, often before nodes have
+// been measured — the result is the wrong zoom. Refit after the new graph is
+// committed and painted. We fit twice (next frame + 80ms) because some nodes
+// only finalize their height after the second pass (long-prompt cards wrap
+// based on container width, which depends on layout).
+function FitOnGraphChange({ depKey }: { depKey: string }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    const fitOnce = () => fitView(FIT_VIEW_OPTIONS);
+    const rafId = requestAnimationFrame(fitOnce);
+    const timeoutId = window.setTimeout(fitOnce, 80);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [depKey, fitView]);
+  return null;
+}
+
+// Default-collapse every segment. A collapsed segment shows a one-line
+// summary (count · tokens · duration), so the full conversation reads as a
+// compact overview at default zoom. Users click any segment header to expand
+// its inference cards.
+function computeInitialCollapsed(nodes: InferenceFlowNode[]): Set<string> {
+  const collapsed = new Set<string>();
+  for (const node of nodes) {
+    if (node.type === 'turnSegment' || node.type === 'subagentSegment') {
+      collapsed.add(node.id);
+    }
+  }
+  return collapsed;
+}
+
 export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
-  const [collapsedSegmentIds, setCollapsedSegmentIds] = useState<Set<string>>(() => new Set());
+  const [collapsedSegmentIds, setCollapsedSegmentIds] = useState<Set<string>>(() =>
+    computeInitialCollapsed(buildGraph(model, conversation).nodes),
+  );
+
+  // Reset to the default-collapsed shape when the user navigates to a different
+  // conversation. Live updates within the same conversation (e.g. token polling)
+  // preserve any manual expand/collapse the user has applied.
+  useEffect(() => {
+    setCollapsedSegmentIds(computeInitialCollapsed(buildGraph(model, conversation).nodes));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.sessionId]);
 
   const toggleSegmentCollapsed = useCallback((segmentId: string) => {
     setCollapsedSegmentIds((prev) => {
@@ -59,6 +107,7 @@ export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={FIT_VIEW_OPTIONS}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable
@@ -68,6 +117,8 @@ export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           <Controls showInteractive={false} />
+          <MiniMap pannable zoomable position="bottom-right" />
+          <FitOnGraphChange depKey={conversation.sessionId} />
         </ReactFlow>
       </ReactFlowProvider>
     </InferenceGraphContext.Provider>

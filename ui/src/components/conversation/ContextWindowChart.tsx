@@ -5,6 +5,7 @@ import type { ConversationSummary, Turn } from '@/types';
 import { MessageCircle } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { toolDetail } from '@/components/waterfall-span';
 import { fmt } from './format';
 import {
   type FlatOwnedSpan,
@@ -18,7 +19,18 @@ import {
 
 interface PrecedingAction {
   name: string;
+  // One level deeper than `name` — file path for Read/Edit/Write, command
+  // for Bash, pattern for Grep/Glob, etc. `null` for tools without a
+  // structured field mapping in TOOL_LABEL_FIELDS (e.g. ToolSearch).
+  detail: string | null;
   outputChars: number;
+}
+
+interface InferenceTokens {
+  total: number;
+  freshInput: number;
+  cacheRead: number;
+  cacheCreation: number;
 }
 
 interface Row {
@@ -44,6 +56,10 @@ interface Row {
   responseText: string;
   responseThinking: string;
   precedingActions: PrecedingAction[];
+  // Token delta vs. the previous inference of the SAME owner. `null` for an
+  // owner's very first inference. Same-owner-only so cross-agent comparisons
+  // (Main vs. Explore) don't produce nonsense numbers.
+  delta: InferenceTokens | null;
   isTurnStart: boolean;
 }
 
@@ -68,6 +84,11 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
   // agent's preceding-actions window (and vice versa) — different agents
   // run on different timelines and feed different prompts.
   const prevInferenceEndByOwner = new Map<string, number>();
+  // Per-owner token totals of the previous inference. Used to compute the
+  // delta shown in the tooltip ("how much context grew from the prior
+  // same-owner inference"). Same-owner scoping is deliberate — cross-owner
+  // deltas would compare apples to oranges.
+  const prevTotalsByOwner = new Map<string, InferenceTokens>();
   let lastTurnEmitted: number | null = null;
   let perTurnCounter = 0;
   let globalIndex = 0;
@@ -119,7 +140,8 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
         typeof other.node.attributes['agent_trace.tool.output_summary'] === 'string'
           ? (other.node.attributes['agent_trace.tool.output_summary'] as string)
           : '';
-      precedingActions.push({ name: toolName, outputChars: output.length });
+      const detail = toolDetail(toolName, other.node.attributes['agent_trace.tool.input_summary']);
+      precedingActions.push({ name: toolName, detail, outputChars: output.length });
     }
 
     let userPrompt = '';
@@ -140,6 +162,16 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
         responseThinking = String(e.attributes?.[REASONING_CONTENT_ATTR] ?? '');
       }
     }
+
+    const prevTotals = prevTotalsByOwner.get(span.owner.key);
+    const delta: InferenceTokens | null = prevTotals
+      ? {
+          total: total - prevTotals.total,
+          freshInput: freshInput - prevTotals.freshInput,
+          cacheRead: cacheRead - prevTotals.cacheRead,
+          cacheCreation: cacheCreation - prevTotals.cacheCreation,
+        }
+      : null;
 
     const turnLabel = `Turn ${span.turnNumber}`;
     const inferenceLabel = `Inference ${perTurnCounter}`;
@@ -163,10 +195,12 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
       responseText,
       responseThinking,
       precedingActions,
+      delta,
       isTurnStart,
     });
 
     prevInferenceEndByOwner.set(span.owner.key, span.endMs);
+    prevTotalsByOwner.set(span.owner.key, { total, freshInput, cacheRead, cacheCreation });
   }
 
   // Owners that actually own at least one inference, in first-seen order.
@@ -456,6 +490,12 @@ function snippet(value: string, max: number): string {
   return `${collapsed.slice(0, max).trim()}…`;
 }
 
+function signedFmt(n: number): string {
+  if (n > 0) return `+${fmt.n(n)}`;
+  if (n < 0) return `−${fmt.n(-n)}`;
+  return '0';
+}
+
 function ContextTooltip(props: TooltipProps) {
   const { active, payload } = props;
   if (!active || !payload?.length) return null;
@@ -519,6 +559,20 @@ function ContextTooltip(props: TooltipProps) {
         </div>
       ) : null}
 
+      {row.delta ? (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between font-mono uppercase text-muted-foreground">
+            <span>Δ from previous</span>
+            <span className="font-medium tabular-nums">{signedFmt(row.delta.total)}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 font-mono text-[10.5px] text-muted-foreground">
+            <span className="truncate">fresh {signedFmt(row.delta.freshInput)}</span>
+            <span className="truncate">read {signedFmt(row.delta.cacheRead)}</span>
+            <span className="truncate">write {signedFmt(row.delta.cacheCreation)}</span>
+          </div>
+        </div>
+      ) : null}
+
       {row.precedingActions.length > 0 ? (
         <div className="flex flex-col gap-1">
           <span className="font-mono text-muted-foreground">tool_results included</span>
@@ -528,7 +582,10 @@ function ContextTooltip(props: TooltipProps) {
                 key={`${a.name}-${i}`}
                 className="flex min-w-0 items-center justify-between gap-3"
               >
-                <span className="min-w-0 truncate font-mono text-[11px]">{a.name}</span>
+                <span className="min-w-0 truncate font-mono text-[11px]">
+                  {a.name}
+                  {a.detail ? <span className="text-muted-foreground">: {a.detail}</span> : null}
+                </span>
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {a.outputChars > 0 ? `${fmt.n(a.outputChars)} ch` : '—'}
                 </span>

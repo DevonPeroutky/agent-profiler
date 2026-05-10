@@ -28,7 +28,7 @@ export function SubagentSegmentNode({
   data,
 }: NodeProps<Extract<InferenceFlowNode, { type: 'subagentSegment' }>>) {
   const { onSelectSpan, collapsedSegmentIds, toggleSegmentCollapsed } = useInferenceGraphContext();
-  const { isFirstSegment, inferences, endsInDispatch, dispatch, tone } = data;
+  const { isFirstSegment, inferences, dispatch, tone } = data;
 
   const isUnattached = tone === 'unattached';
   const headerLabel = (() => {
@@ -100,9 +100,7 @@ export function SubagentSegmentNode({
           ))}
         </div>
       )}
-      {endsInDispatch && (
-        <Handle type="source" position={Position.Right} id="right" className={HANDLE_CLASSES} />
-      )}
+      <Handle type="source" position={Position.Right} id="right" className={HANDLE_CLASSES} />
       <Handle type="source" position={Position.Bottom} id="bottom" className={HANDLE_CLASSES} />
     </div>
   );

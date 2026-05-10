@@ -44,6 +44,9 @@ const HORIZONTAL_GAP = 80;
 const TOP_LEVEL_MARGIN_X = 32;
 const TOP_LEVEL_MARGIN_Y = 32;
 const UNATTACHED_GAP = 80;
+// Horizontal gap between adjacent turn columns. Larger than the within-turn
+// HORIZONTAL_GAP so the visual break between turns is obvious at a glance.
+const INTER_TURN_GAP = 96;
 
 interface Box {
   x: number;
@@ -190,10 +193,15 @@ function layoutTurnGroup(
   return { width: maxRight - offsetX, height: totalHeight };
 }
 
+// Lay turns out left→right. Each turn keeps its existing internal TB layout
+// (prompt on top, segments stacked below, subagent column branching to the
+// right of its dispatcher). Returns the bottom-most Y across all turns so the
+// caller can place unattached branches underneath.
 function layoutMainRail(
   model: InferenceFlowModel,
   conversation: { turns: readonly Turn[] },
   positions: Map<string, Box>,
+  startX: number,
   startY: number,
   collapsed: ReadonlySet<string>,
 ): number {
@@ -204,12 +212,14 @@ function layoutMainRail(
   for (const t of conversation.turns) turnsByNumber.set(t.turnNumber, t);
   const groups = groupMainByTurn(main, turnsByNumber);
 
-  let cursorY = startY;
+  let cursorX = startX;
+  let maxBottomY = startY;
   for (const group of groups) {
-    const box = layoutTurnGroup(group, positions, model, TOP_LEVEL_MARGIN_X, cursorY, collapsed);
-    cursorY += box.height + RAIL_GAP;
+    const box = layoutTurnGroup(group, positions, model, cursorX, startY, collapsed);
+    cursorX += box.width + INTER_TURN_GAP;
+    maxBottomY = Math.max(maxBottomY, startY + box.height);
   }
-  return cursorY - RAIL_GAP;
+  return maxBottomY;
 }
 
 export function layoutGraph(
@@ -226,6 +236,7 @@ export function layoutGraph(
     model,
     conversation,
     positions,
+    TOP_LEVEL_MARGIN_X,
     TOP_LEVEL_MARGIN_Y,
     collapsedSegmentIds,
   );

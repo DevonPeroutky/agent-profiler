@@ -27,7 +27,7 @@ export function TurnSegmentNode({
   data,
 }: NodeProps<Extract<InferenceFlowNode, { type: 'turnSegment' }>>) {
   const { onSelectSpan, collapsedSegmentIds, toggleSegmentCollapsed } = useInferenceGraphContext();
-  const { isFirstSegment, turnNumber, inferences, endsInDispatch } = data;
+  const { isFirstSegment, turnNumber, inferences } = data;
 
   const isCollapsed = collapsedSegmentIds.has(id);
   const canCollapse = inferences.length > 0;
@@ -73,9 +73,7 @@ export function TurnSegmentNode({
           ))}
         </div>
       )}
-      {endsInDispatch && (
-        <Handle type="source" position={Position.Right} id="right" className={HANDLE_CLASSES} />
-      )}
+      <Handle type="source" position={Position.Right} id="right" className={HANDLE_CLASSES} />
       <Handle type="source" position={Position.Bottom} id="bottom" className={HANDLE_CLASSES} />
     </div>
   );

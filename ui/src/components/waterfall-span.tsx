@@ -97,7 +97,7 @@ function basename(path: string): string {
   return i >= 0 ? path.slice(i + 1) : path;
 }
 
-function toolDetail(toolName: string, inputSummary: unknown): string | null {
+export function toolDetail(toolName: string, inputSummary: unknown): string | null {
   const fields = TOOL_LABEL_FIELDS[toolName];
   if (!fields || typeof inputSummary !== 'string') return null;
   let parsed: unknown;

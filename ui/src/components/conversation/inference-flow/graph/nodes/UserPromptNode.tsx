@@ -16,6 +16,7 @@ export function UserPromptNode({
   return (
     <div className="relative">
       <Handle type="target" position={Position.Top} id="top" className={HANDLE_CLASSES} />
+      <Handle type="target" position={Position.Left} id="left" className={HANDLE_CLASSES} />
       <button
         type="button"
         onClick={() => onSelectSpan?.(span)}
@@ -41,6 +42,7 @@ export function UserPromptNode({
         </span>
       </button>
       <Handle type="source" position={Position.Bottom} id="bottom" className={HANDLE_CLASSES} />
+      <Handle type="source" position={Position.Right} id="right" className={HANDLE_CLASSES} />
     </div>
   );
 }

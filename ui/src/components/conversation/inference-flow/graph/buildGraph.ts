@@ -13,7 +13,7 @@ import type {
 
 interface RailExit {
   id: string;
-  handle: 'bottom';
+  handle: 'bottom' | 'right';
   tone: EdgeTone;
 }
 
@@ -220,8 +220,11 @@ function emitTurnGroup(
     data: promptData,
     position: { x: 0, y: 0 },
   });
+  // Inter-turn edges arrive from the previous turn's right side into this
+  // prompt's left side. Within-turn edges (prompt→first-segment) keep using
+  // bottom→top, set on `promptExit` below.
   for (const exit of prevExits) {
-    pushEdge(acc, exit.id, promptId, exit.tone, exit.handle, 'top');
+    pushEdge(acc, exit.id, promptId, exit.tone, exit.handle, 'left');
   }
 
   const promptExit: RailExit = {
@@ -234,6 +237,7 @@ function emitTurnGroup(
   // dispatches (slash-command turn). The transformer never produces both
   // in the same turn — `walkTurn` only creates a synthetic node when no
   // inference-parented dispatches exist (transforms.ts:332).
+  let exits: RailExit[];
   if (group.realInferences.length > 0) {
     const result = emitSegmentChain({
       segments: segmentInferences(group.realInferences),
@@ -245,18 +249,21 @@ function emitTurnGroup(
       model,
       acc,
     });
-    return result?.exits ?? [promptExit];
-  }
-
-  if (group.syntheticDispatches.length > 0) {
+    exits = result?.exits ?? [promptExit];
+  } else if (group.syntheticDispatches.length > 0) {
     let chainExits: RailExit[] = [promptExit];
     for (const d of group.syntheticDispatches) {
       chainExits = emitSubagentChainUnderPrompt(d, model, acc, chainExits);
     }
-    return chainExits;
+    exits = chainExits;
+  } else {
+    exits = [promptExit];
   }
 
-  return [promptExit];
+  // The exits returned here feed the NEXT turn's prompt. The layout places
+  // turns left→right, so inter-turn edges leave via the right handle (and
+  // enter the next prompt's left handle, wired above).
+  return exits.map((e) => ({ ...e, handle: 'right' as const }));
 }
 
 function processMainRail(
