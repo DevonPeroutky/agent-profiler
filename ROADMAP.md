@@ -4,7 +4,6 @@
 
 - [ ] Attachment handling?
 - [ ] Production-ize
-- [x] Replace `Context per inference` w/Tool call overview?
 
 ## Views
 
