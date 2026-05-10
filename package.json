@@ -27,7 +27,7 @@
     "build": "npm run build -w ui",
     "preview": "npm run preview -w ui",
     "start": "node bin/agent-profiler.js",
-    "test": "node --test \"test/**/*.test.js\"",
+    "test": "node --test test/*.test.js",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
