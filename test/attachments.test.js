@@ -1,8 +1,8 @@
+// @ts-nocheck
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-// @ts-nocheck
 import { test } from 'node:test';
 import {
   ATTACHMENT_HANDLERS,
@@ -53,7 +53,22 @@ const assistant = (content, t = '2026-04-23T12:00:02.000Z', requestId = 'req_1')
     },
   });
 
-const bundleOf = (records) => ({ main: records, subagents: [] });
+// Records produced by `rec` default to `parentUuid: null`, but `sliceTurns`
+// groups records into turns by walking the `parentUuid` chain. Thread
+// `parentUuid` through any record that doesn't have one explicitly set, so
+// fixtures land in the same slice as their user-prompt root. Records with an
+// explicit `parentUuid` (e.g. the inline ExitPlanMode fixtures below) are
+// left alone.
+const chain = (records) => {
+  let prevUuid = null;
+  return records.map((r) => {
+    const out = r.parentUuid == null ? { ...r, parentUuid: prevUuid } : r;
+    prevUuid = out.uuid ?? prevUuid;
+    return out;
+  });
+};
+
+const bundleOf = (records) => ({ main: chain(records), subagents: [] });
 
 // ──────────────────────────────────────────────────────────────────────────
 // Acceptance #1: handler routing — specific handlers fire for known types,
@@ -214,8 +229,10 @@ test('subagent buildSubagentSpan does not surface attachment bytes (out-of-scope
     }),
   ];
   const traces = toTraces('s4', {
-    main: mainRecords,
-    subagents: [{ agentId: 'a-sub', agentType: 'general-purpose', records: subagentRecords }],
+    main: chain(mainRecords),
+    subagents: [
+      { agentId: 'a-sub', agentType: 'general-purpose', records: chain(subagentRecords) },
+    ],
   });
   const turn = traces.find((t) => t.kind === 'turn');
   assert.ok(turn);

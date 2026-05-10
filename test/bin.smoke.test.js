@@ -24,7 +24,6 @@ function startCli(extraArgs = []) {
   const proc = spawn('node', [BIN, '--port', '0', '--no-open', ...extraArgs], {
     cwd: REPO_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, AGENT_PROFILER_NO_UPDATE_CHECK: '1' },
   });
   return new Promise((resolve, reject) => {
     let stdout = '';

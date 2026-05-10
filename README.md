@@ -15,7 +15,7 @@ If you use Claude Code daily, you have a goldmine of session transcripts sitting
 
 ## Requirements
 
-- **Node 18+**
+- **Node 20+**
 - An existing `~/.claude/projects/` directory (created automatically the first time you use Claude Code)
 
 ## Install & run
@@ -61,7 +61,6 @@ agent-profiler --verbose            # log requests for debugging
 | --- | --- | --- |
 | `AGENT_TRACE_PORT` | `5173` | Default port (overridden by `--port`) |
 | `AGENT_TRACE_LIMIT` | `200` | Cap on most-recent sessions returned by `/api/traces` |
-| `AGENT_PROFILER_NO_UPDATE_CHECK` | _unset_ | Disable the daily "new version available" notice |
 
 ## Develop
 

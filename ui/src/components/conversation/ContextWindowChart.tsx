@@ -453,7 +453,7 @@ function ContextTooltip(props: TooltipProps) {
       {triggerSnippet ? (
         <div className="flex flex-col gap-1">
           <span className="text-muted-foreground">
-            {row.isTurnStart ? 'User prompt' : 'Trigger'}
+            {row.isTurnStart ? 'User Prompt' : 'Inference Trigger'}
           </span>
           <p className="line-clamp-3 text-[11px] leading-snug">
             {triggerSnippet}
