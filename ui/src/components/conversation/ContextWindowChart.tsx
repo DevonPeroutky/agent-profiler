@@ -2,6 +2,7 @@ import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import type { ConversationSummary, Turn } from '@/types';
+import { MessageCircle } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { fmt } from './format';
@@ -284,11 +285,14 @@ export function ContextWindowChart({ conversation }: Props) {
               stroke="var(--border)"
               strokeWidth={1}
               isAnimationActive={false}
+              dot={<ContextDot />}
+              activeDot={false}
             />
           </AreaChart>
         </ChartContainer>
       )}
       {owners.length > 0 ? <OwnerLegend owners={owners} /> : null}
+      {rows.length > 0 ? <MarkerLegend /> : null}
     </SectionCard>
   );
 }
@@ -306,6 +310,24 @@ function OwnerLegend({ owners }: { owners: OwnerInfo[] }) {
           <span className="min-w-0 truncate text-muted-foreground">{o.label}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function MarkerLegend() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <MessageCircle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+        <span>user prompt</span>
+      </div>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span
+          aria-hidden
+          className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70"
+        />
+        <span>inference trigger</span>
+      </div>
     </div>
   );
 }
@@ -336,6 +358,46 @@ function TwoLineTick({ rows, x = 0, y = 0, payload, textAnchor = 'middle' }: Two
         {row.inferenceLabel}
       </tspan>
     </text>
+  );
+}
+
+interface ContextDotProps {
+  cx?: number;
+  cy?: number;
+  payload?: Row;
+}
+
+const USER_PROMPT_ICON_SIZE = 14;
+
+function ContextDot({ cx, cy, payload }: ContextDotProps) {
+  if (cx == null || cy == null || !payload) return null;
+  if (payload.isTurnStart) {
+    // Lucide paths bake fill="none", so the icon's own fill prop won't paint the
+    // bubble interior — back it with a solid white circle to punch through the
+    // area gradient.
+    return (
+      <g style={{ pointerEvents: 'none' }}>
+        <circle cx={cx} cy={cy} r={USER_PROMPT_ICON_SIZE / 2 - 1} fill="#ffffff" />
+        <MessageCircle
+          x={cx - USER_PROMPT_ICON_SIZE / 2}
+          y={cy - USER_PROMPT_ICON_SIZE / 2}
+          width={USER_PROMPT_ICON_SIZE}
+          height={USER_PROMPT_ICON_SIZE}
+          stroke={payload.ownerColor}
+          strokeWidth={1.75}
+          fill="none"
+        />
+      </g>
+    );
+  }
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={1.25}
+      fill={payload.ownerColor}
+      style={{ pointerEvents: 'none' }}
+    />
   );
 }
 
