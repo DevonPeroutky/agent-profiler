@@ -6,7 +6,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { InferenceFlowModel } from '../transforms';
 import { buildGraph } from './buildGraph';
 import { InferenceGraphContext } from './context';
@@ -29,13 +29,27 @@ interface Props {
 }
 
 export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
+  const [collapsedSegmentIds, setCollapsedSegmentIds] = useState<Set<string>>(() => new Set());
+
+  const toggleSegmentCollapsed = useCallback((segmentId: string) => {
+    setCollapsedSegmentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(segmentId)) next.delete(segmentId);
+      else next.add(segmentId);
+      return next;
+    });
+  }, []);
+
   const { nodes, edges } = useMemo(() => {
     const built = buildGraph(model, conversation);
-    const laid = layoutGraph(built.nodes, built.edges, model, conversation);
+    const laid = layoutGraph(built.nodes, built.edges, model, conversation, collapsedSegmentIds);
     return { nodes: laid.nodes, edges: styleEdges(laid.edges) };
-  }, [model, conversation]);
+  }, [model, conversation, collapsedSegmentIds]);
 
-  const ctx = useMemo(() => ({ onSelectSpan }), [onSelectSpan]);
+  const ctx = useMemo(
+    () => ({ onSelectSpan, collapsedSegmentIds, toggleSegmentCollapsed }),
+    [onSelectSpan, collapsedSegmentIds, toggleSegmentCollapsed],
+  );
 
   return (
     <InferenceGraphContext.Provider value={ctx}>

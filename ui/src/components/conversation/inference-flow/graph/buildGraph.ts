@@ -279,7 +279,6 @@ function processMainRail(
 
 function processUnattachedBranch(
   branchId: string,
-  index: number,
   model: InferenceFlowModel,
   acc: Acc,
 ): void {
@@ -287,7 +286,7 @@ function processUnattachedBranch(
   if (inferences.length === 0) return;
   emitSegmentChain({
     segments: segmentInferences(inferences),
-    branchKey: `unattached:${index}`,
+    branchKey: branchId,
     tone: 'unattached',
     nodeType: 'subagentSegment',
     turnNumber: null,
@@ -306,6 +305,8 @@ export function buildGraph(
 } {
   const acc: Acc = { nodes: [], edges: [], edgeIds: new Set() };
   processMainRail(model, conversation, acc);
-  model.unattachedBranchIds.forEach((bid, i) => processUnattachedBranch(bid, i, model, acc));
+  for (const bid of model.unattachedBranchIds) {
+    processUnattachedBranch(bid, model, acc);
+  }
   return { nodes: acc.nodes, edges: acc.edges };
 }

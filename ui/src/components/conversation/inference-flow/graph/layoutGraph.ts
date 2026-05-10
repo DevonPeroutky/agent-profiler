@@ -18,6 +18,11 @@ const INFERENCE_TOOLS_GAP = 10;
 const INFERENCE_TOOLS_PER_ROW = 3;
 const INNER_GAP = 8;
 
+// Collapsed-bundle leaf: header + a single summary row.
+const COLLAPSED_SUMMARY_HEIGHT = 24;
+const COLLAPSED_SEGMENT_HEIGHT =
+  HEADER_HEIGHT + SEGMENT_PADDING_TOP + COLLAPSED_SUMMARY_HEIGHT + SEGMENT_PADDING_BOTTOM;
+
 // Card chrome (badge row + 1 line) plus space for up to 6 wrapped lines.
 const USER_PROMPT_BASE_HEIGHT = 48;
 const USER_PROMPT_LINE_HEIGHT = 16;
@@ -55,7 +60,8 @@ function inferenceBlockHeight(inf: InferenceNode): number {
   return base + rows * INFERENCE_TOOLS_ROW_HEIGHT + INFERENCE_TOOLS_GAP;
 }
 
-function segmentHeight(inferences: InferenceNode[]): number {
+function segmentHeight(inferences: InferenceNode[], isCollapsed: boolean): number {
+  if (isCollapsed) return COLLAPSED_SEGMENT_HEIGHT;
   if (inferences.length === 0) {
     return HEADER_HEIGHT + SEGMENT_PADDING_TOP + SEGMENT_PADDING_BOTTOM;
   }
@@ -75,6 +81,7 @@ function layoutSegmentChain(
   model: InferenceFlowModel,
   offsetX: number,
   offsetY: number,
+  collapsed: ReadonlySet<string>,
 ): { width: number; height: number } {
   if (segments.length === 0) return { width: 0, height: 0 };
 
@@ -84,7 +91,7 @@ function layoutSegmentChain(
   for (let i = 0; i < segments.length; i++) {
     const segId = `${branchKey}::seg:${i}`;
     const seg = segments[i];
-    const segH = segmentHeight(seg.leadingInferences);
+    const segH = segmentHeight(seg.leadingInferences, collapsed.has(segId));
     const segY = cursorY;
     positions.set(segId, {
       x: offsetX,
@@ -106,6 +113,7 @@ function layoutSegmentChain(
           model,
           subAnchorX,
           segY,
+          collapsed,
         );
         segBottom = Math.max(segBottom, segY + subBox.height);
         maxRight = Math.max(maxRight, subAnchorX + subBox.width);
@@ -131,6 +139,7 @@ function layoutTurnGroup(
   model: InferenceFlowModel,
   offsetX: number,
   offsetY: number,
+  collapsed: ReadonlySet<string>,
 ): { width: number; height: number } {
   const promptId = `${group.id}::prompt`;
   const promptHeight = userPromptHeight(group.promptLabel);
@@ -153,6 +162,7 @@ function layoutTurnGroup(
       model,
       offsetX,
       chainTopY,
+      collapsed,
     );
     maxRight = Math.max(maxRight, offsetX + box.width);
     chainHeight = box.height;
@@ -168,6 +178,7 @@ function layoutTurnGroup(
         model,
         offsetX,
         cursorY,
+        collapsed,
       );
       maxRight = Math.max(maxRight, offsetX + box.width);
       cursorY += box.height + RAIL_GAP;
@@ -184,6 +195,7 @@ function layoutMainRail(
   conversation: { turns: readonly Turn[] },
   positions: Map<string, Box>,
   startY: number,
+  collapsed: ReadonlySet<string>,
 ): number {
   const main = model.branches.get('main') ?? [];
   if (main.length === 0) return startY;
@@ -194,7 +206,7 @@ function layoutMainRail(
 
   let cursorY = startY;
   for (const group of groups) {
-    const box = layoutTurnGroup(group, positions, model, TOP_LEVEL_MARGIN_X, cursorY);
+    const box = layoutTurnGroup(group, positions, model, TOP_LEVEL_MARGIN_X, cursorY, collapsed);
     cursorY += box.height + RAIL_GAP;
   }
   return cursorY - RAIL_GAP;
@@ -205,26 +217,34 @@ export function layoutGraph(
   edges: InferenceFlowEdge[],
   model: InferenceFlowModel,
   conversation: { turns: readonly Turn[] },
+  collapsedSegmentIds: ReadonlySet<string>,
 ): { nodes: InferenceFlowNode[]; edges: InferenceFlowEdge[] } {
   if (nodes.length === 0) return { nodes, edges };
 
   const positions = new Map<string, Box>();
-  const mainEndY = layoutMainRail(model, conversation, positions, TOP_LEVEL_MARGIN_Y);
+  const mainEndY = layoutMainRail(
+    model,
+    conversation,
+    positions,
+    TOP_LEVEL_MARGIN_Y,
+    collapsedSegmentIds,
+  );
 
   let unattachedY = mainEndY + UNATTACHED_GAP;
-  model.unattachedBranchIds.forEach((bid, i) => {
+  for (const bid of model.unattachedBranchIds) {
     const inferences = model.branches.get(bid) ?? [];
-    if (inferences.length === 0) return;
+    if (inferences.length === 0) continue;
     const box = layoutSegmentChain(
-      `unattached:${i}`,
+      bid,
       segmentInferences(inferences),
       positions,
       model,
       TOP_LEVEL_MARGIN_X,
       unattachedY,
+      collapsedSegmentIds,
     );
     unattachedY += box.height + UNATTACHED_GAP;
-  });
+  }
 
   const positioned: InferenceFlowNode[] = nodes.map((node) => {
     const pos = positions.get(node.id);

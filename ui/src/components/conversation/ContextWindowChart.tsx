@@ -37,10 +37,18 @@ interface Row {
   ownerToolName: string | null;
   ownerColor: string;
   model: string | null;
-  trigger: string;
+  // User's typed prompt — only populated when isTurnStart.
+  userPrompt: string;
+  // Assistant response content from this inference's events. Either may be
+  // empty (tool-use-only inferences have neither).
+  responseText: string;
+  responseThinking: string;
   precedingActions: PrecedingAction[];
   isTurnStart: boolean;
 }
+
+const MESSAGE_CONTENT_ATTR = 'gen_ai.message.content';
+const REASONING_CONTENT_ATTR = 'gen_ai.reasoning.content';
 
 function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] } {
   const registry: OwnerRegistry = createOwnerRegistry();
@@ -114,13 +122,23 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
       precedingActions.push({ name: toolName, outputChars: output.length });
     }
 
-    let trigger = '';
+    let userPrompt = '';
     if (isTurnStart) {
       const turn = turnsByNumber.get(span.turnNumber);
-      trigger = turn?.userPrompt ?? '';
-    } else {
-      const promptAttr = a['agent_trace.inference.prompt'];
-      if (typeof promptAttr === 'string') trigger = promptAttr;
+      userPrompt = turn?.userPrompt ?? '';
+    }
+
+    // Assistant response content lives as events on the inference span. Same
+    // access pattern as transforms.ts:445-481. Either or both may be empty
+    // — a tool-use-only inference has no text and no reasoning content.
+    let responseText = '';
+    let responseThinking = '';
+    for (const e of span.node.events) {
+      if (e.name === 'gen_ai.assistant.message') {
+        responseText = String(e.attributes?.[MESSAGE_CONTENT_ATTR] ?? '');
+      } else if (e.name === 'gen_ai.assistant.reasoning') {
+        responseThinking = String(e.attributes?.[REASONING_CONTENT_ATTR] ?? '');
+      }
     }
 
     const turnLabel = `Turn ${span.turnNumber}`;
@@ -141,7 +159,9 @@ function deriveRows(turns: readonly Turn[]): { rows: Row[]; owners: OwnerInfo[] 
       ownerToolName: span.owner.toolName,
       ownerColor: span.owner.color,
       model,
-      trigger,
+      userPrompt,
+      responseText,
+      responseThinking,
       precedingActions,
       isTurnStart,
     });
@@ -414,7 +434,8 @@ interface TooltipProps {
 }
 
 const ACTION_LIMIT = 5;
-const TRIGGER_MAX_CHARS = 140;
+const USER_PROMPT_MAX_CHARS = 140;
+const RESPONSE_MAX_CHARS = 280;
 
 const COMPOSITION_SEGMENTS = [
   { key: 'freshInput', short: 'fresh', color: 'var(--tok-fresh)' },
@@ -428,14 +449,22 @@ function ColorSwatch({ color }: { color: string }) {
   );
 }
 
+function snippet(value: string, max: number): string {
+  if (!value) return '';
+  const collapsed = value.replace(/\s+/g, ' ').trim();
+  if (collapsed.length <= max) return collapsed;
+  return `${collapsed.slice(0, max).trim()}…`;
+}
+
 function ContextTooltip(props: TooltipProps) {
   const { active, payload } = props;
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
 
-  const triggerSnippet = row.trigger
-    ? row.trigger.replace(/\s+/g, ' ').slice(0, TRIGGER_MAX_CHARS).trim()
-    : '';
+  const userPromptSnippet = row.isTurnStart ? snippet(row.userPrompt, USER_PROMPT_MAX_CHARS) : '';
+  const responseTextSnippet = snippet(row.responseText, RESPONSE_MAX_CHARS);
+  const responseThinkingSnippet = snippet(row.responseThinking, RESPONSE_MAX_CHARS);
+  const hasResponse = Boolean(responseTextSnippet || responseThinkingSnippet);
   const visibleActions = row.precedingActions.slice(0, ACTION_LIMIT);
   const remaining = row.precedingActions.length - visibleActions.length;
   const headerLabel = row.ownerKind === 'main' ? 'Main Conversation' : row.ownerLabel;
@@ -512,15 +541,24 @@ function ContextTooltip(props: TooltipProps) {
         </div>
       ) : null}
 
-      {triggerSnippet ? (
+      {row.isTurnStart && userPromptSnippet ? (
         <div className="flex flex-col gap-1">
-          <span className="text-muted-foreground">
-            {row.isTurnStart ? 'User Prompt' : 'Inference Trigger'}
-          </span>
-          <p className="line-clamp-3 text-[11px] leading-snug">
-            {triggerSnippet}
-            {row.trigger.length > triggerSnippet.length ? '…' : ''}
-          </p>
+          <span className="text-muted-foreground">User Prompt</span>
+          <p className="line-clamp-3 text-[11px] leading-snug">{userPromptSnippet}</p>
+        </div>
+      ) : null}
+
+      {!row.isTurnStart && hasResponse ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-muted-foreground">Assistant Response</span>
+          {responseThinkingSnippet ? (
+            <p className="line-clamp-3 text-[11px] italic leading-snug text-muted-foreground">
+              {responseThinkingSnippet}
+            </p>
+          ) : null}
+          {responseTextSnippet ? (
+            <p className="line-clamp-3 text-[11px] leading-snug">{responseTextSnippet}</p>
+          ) : null}
         </div>
       ) : null}
 

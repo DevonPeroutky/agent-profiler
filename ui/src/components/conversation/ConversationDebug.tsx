@@ -88,6 +88,7 @@ export function ConversationDebug({ sessionId }: Props) {
           title="Main transcript"
           subtitle={`${main.length} record${main.length === 1 ? '' : 's'}`}
           records={main}
+          defaultOpen
         />
         {subagents.map((sa) => (
           <RecordList
@@ -119,20 +120,41 @@ interface RecordListProps {
   title: string;
   subtitle: string;
   records: TranscriptRecord[];
+  defaultOpen?: boolean;
 }
 
-function RecordList({ title, subtitle, records }: RecordListProps) {
+function RecordList({ title, subtitle, records, defaultOpen = false }: RecordListProps) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
-      <div className="flex items-baseline justify-between border-b border-border bg-muted/40 px-4 py-2.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(
+          'flex w-full items-baseline justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2.5 text-left transition-colors hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          !open && 'border-b-0',
+        )}
+      >
         <span className="font-mono text-[12px] font-semibold text-foreground">{title}</span>
-        <span className="font-mono text-[11px] text-muted-foreground">{subtitle}</span>
-      </div>
-      {records.length === 0 ? (
-        <div className="px-4 py-3 text-[12px] italic text-muted-foreground">(empty)</div>
-      ) : (
-        records.map((rec, i) => <RecordRow key={i} record={rec} index={i} />)
-      )}
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground">{subtitle}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 self-center text-muted-foreground transition-transform duration-150',
+            !open && '-rotate-90',
+          )}
+        />
+      </button>
+      <Collapsible open={open}>
+        <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
+          {records.length === 0 ? (
+            <div className="px-4 py-3 text-[12px] italic text-muted-foreground">(empty)</div>
+          ) : (
+            records.map((rec, i) => <RecordRow key={i} record={rec} index={i} />)
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
