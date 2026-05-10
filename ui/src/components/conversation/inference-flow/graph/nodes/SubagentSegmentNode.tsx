@@ -9,7 +9,11 @@ import type { InferenceFlowNode } from '../types';
 
 const HANDLE_CLASSES = '!h-1 !w-1 !min-h-0 !min-w-0 !border-0 !bg-transparent !opacity-0';
 
-function summarize(inferences: InferenceNode[]): { count: number; tokens: number; durationMs: number } {
+function summarize(inferences: InferenceNode[]): {
+  count: number;
+  tokens: number;
+  durationMs: number;
+} {
   let durationMs = 0;
   const tokens: InferenceTokens = { input: 0, cacheRead: 0, cacheCreation: 0, output: 0 };
   for (const inf of inferences) {
@@ -20,7 +24,11 @@ function summarize(inferences: InferenceNode[]): { count: number; tokens: number
     tokens.cacheCreation += inf.tokens.cacheCreation;
     tokens.output += inf.tokens.output;
   }
-  return { count: inferences.filter((i) => !i.isSynthetic).length, tokens: totalTokens(tokens), durationMs };
+  return {
+    count: inferences.filter((i) => !i.isSynthetic).length,
+    tokens: totalTokens(tokens),
+    durationMs,
+  };
 }
 
 export function SubagentSegmentNode({

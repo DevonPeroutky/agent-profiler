@@ -1,11 +1,11 @@
 import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { ChartTooltipShell } from '@/components/ui/chart-tooltip-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import { toolDetail } from '@/components/waterfall-span';
 import type { ConversationSummary, Turn } from '@/types';
 import { MessageCircle } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
-import { toolDetail } from '@/components/waterfall-span';
 import { fmt } from './format';
 import {
   type FlatOwnedSpan,
@@ -376,10 +376,7 @@ function MarkerLegend() {
         <span>user prompt</span>
       </div>
       <div className="flex min-w-0 items-center gap-1.5">
-        <span
-          aria-hidden
-          className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70"
-        />
+        <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70" />
         <span>inference trigger</span>
       </div>
     </div>
@@ -445,13 +442,7 @@ function ContextDot({ cx, cy, payload }: ContextDotProps) {
     );
   }
   return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={1.25}
-      fill={payload.ownerColor}
-      style={{ pointerEvents: 'none' }}
-    />
+    <circle cx={cx} cy={cy} r={1.25} fill={payload.ownerColor} style={{ pointerEvents: 'none' }} />
   );
 }
 
