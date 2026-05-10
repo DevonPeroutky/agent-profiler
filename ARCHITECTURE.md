@@ -1,8 +1,10 @@
 # Architecture
 
-How agent-profiler turns Claude Code's on-disk session transcripts into the waterfall you see in the UI.
+How agent-profiler turns local agent harness transcripts into the waterfall you see in the UI.
 
-For installation and day-to-day usage, see [README.md](./README.md). For the exhaustive contract that every change to the transformer must respect, see [CLAUDE.md](./CLAUDE.md). This document is the bridge: a conceptual overview anyone can read, plus an implementation map for maintainers editing the trace pipeline.
+For installation and day-to-day usage, see [README.md](./README.md). For the exhaustive contract that every change to the Claude Code transformer must respect, see [CLAUDE.md](./CLAUDE.md). This document is the bridge: a conceptual overview anyone can read, plus an implementation map for maintainers editing the trace pipeline.
+
+The implementation notes below describe the Claude Code adapter in detail. Additional harness adapters should follow the same local-only trace contract.
 
 ---
 
@@ -175,4 +177,4 @@ Hooks (e.g. `hook:SessionStart`) emitted before turn 1 with `durationMs > 0` rel
 - **OTLP export or any external collector.** The transformer is pure — a one-shot script is ~30 lines if you ever need it.
 - **Hooks or live push.** Hooks are fragile (undocumented `matcher`, slash commands skip `UserPromptSubmit`, adapter bugs drop `agent_id`). Transcripts are complete and stable. The 5s poll is intentional.
 - **Cross-session comparison views, alerting, remote collectors.**
-- **Harness-agnostic abstraction.** Current scope is Claude Code only.
+- **Remote harness collection.** agent-profiler reads local transcript files; it is not a hosted collector for remote-only agent runs.

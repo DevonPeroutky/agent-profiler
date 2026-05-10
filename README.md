@@ -1,43 +1,53 @@
-# agent-profiler
+<p align="center"><code>npx agent-profiler</code><br />or <code>npm i -g agent-profiler</code></p>
+<p align="center"><strong>agent-profiler</strong> is a local, open-source trace viewer for agent harness sessions.</p>
+<p align="center"><strong>Supported harnesses:</strong> Codex and Claude Code</p>
+<p align="center">
+  <img src="./.github/agent-profiler-splash.svg" alt="agent-profiler app overview" width="80%" />
+</p>
 
-A local trace viewer for [Claude Code](https://claude.com/claude-code) conversations. Reads your session transcripts from `~/.claude/projects/*/` and renders them as a span-tree waterfall — session → turn → tool call → subagent, with prompts, tool I/O, and per-turn token usage inline.
+---
 
-No hooks. No background collector. No telemetry. Just a small Node server that reads your transcripts on demand.
+## Quickstart
 
-## Why
+### Installing and running agent-profiler
 
-If you use Claude Code daily, you have a goldmine of session transcripts sitting on disk that you can't easily look at. agent-profiler turns them into a waterfall you can actually read:
+agent-profiler runs entirely on your computer. It reads local harness transcripts on demand, serves a local UI, and does not upload traces, prompts, tool output, or usage data anywhere.
 
-- **See where time and tokens went.** Per-turn token totals, per-tool durations, per-subagent breakdowns.
-- **Inspect what really happened.** Prompts, tool inputs/outputs, subagent transcripts — all inline.
-- **Live updates.** Polls every 5 seconds, so an in-flight session keeps filling in as Claude Code writes new messages.
-- **Zero setup.** No SDK, no hook config, no collector. If you've used Claude Code, the data is already there.
+Requirements:
 
-## Requirements
+- **Node.js 20+**
+- **npm 10+**
+- Local transcript data from Codex or Claude Code
 
-- **Node 20+**
-- An existing `~/.claude/projects/` directory (created automatically the first time you use Claude Code)
+Run with `npx`:
 
-## Install & run
-
-One command, zero config:
-
-```bash
+```shell
 npx agent-profiler
 ```
 
-Opens `http://localhost:5173/` in your browser. The first run downloads the package (~few MB); subsequent runs use the npx cache.
+Or install globally:
 
-To install globally instead:
-
-```bash
+```shell
 npm install -g agent-profiler
 agent-profiler
 ```
 
-## Usage
+The app opens `http://localhost:5173/` by default.
 
-```
+### Using local harness data
+
+agent-profiler is deliberately local-first:
+
+- No hooks or background collector.
+- No hosted service or telemetry.
+- No data leaves your computer.
+- The server only reads local transcript files when the UI requests them.
+
+The Claude Code adapter reads session transcripts from `~/.claude/projects/*/`. Codex support follows the same adapter model: discover local session files, parse them into the shared trace shape, and render them in the same waterfall UI.
+
+### CLI options
+
+```shell
 agent-profiler [options]
 
   -p, --port <n>     Port to listen on (0 = pick a free one). Default 5173
@@ -47,36 +57,28 @@ agent-profiler [options]
   -h, --help         Show this message
 ```
 
-Examples:
+### Developing locally
 
-```bash
-agent-profiler --port 7777          # custom port
-agent-profiler --no-open            # don't open browser (e.g. on a server)
-agent-profiler --verbose            # log requests for debugging
-```
-
-## Environment variables
-
-| Var | Default | Purpose |
-| --- | --- | --- |
-| `AGENT_TRACE_PORT` | `5173` | Default port (overridden by `--port`) |
-| `AGENT_TRACE_LIMIT` | `200` | Cap on most-recent sessions returned by `/api/traces` |
-
-## Develop
-
-```bash
+```shell
 git clone https://github.com/devonperoutky/agent-profiler
 cd agent-profiler
 npm install
-npm run dev          # vite + HMR at http://localhost:5173/
+npm run dev
+```
+
+Common commands:
+
+```shell
 npm run build        # builds ui/dist/
 npm run test         # node:test unit + smoke tests
 npm run typecheck    # tsc --noEmit
 npm run lint         # biome check
 ```
 
-For internals — the read pipeline, trace topology, token attribution, and what's deliberately out of scope — see [ARCHITECTURE.md](./ARCHITECTURE.md).
+## Docs
 
-## License
+- [**Architecture**](./ARCHITECTURE.md)
+- [**Contributing**](./CONTRIBUTING.md)
+- [**Documentation Stub: Adding an adapter for a new agent harness**](./docs/adding-agent-harness-adapter.md)
 
-Apache-2.0 — see [LICENSE](./LICENSE).
+This repository is licensed under the [Apache-2.0 License](./LICENSE).
