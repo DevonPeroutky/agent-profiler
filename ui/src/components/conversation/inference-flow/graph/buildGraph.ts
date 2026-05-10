@@ -284,11 +284,7 @@ function processMainRail(
   }
 }
 
-function processUnattachedBranch(
-  branchId: string,
-  model: InferenceFlowModel,
-  acc: Acc,
-): void {
+function processUnattachedBranch(branchId: string, model: InferenceFlowModel, acc: Acc): void {
   const inferences = model.branches.get(branchId) ?? [];
   if (inferences.length === 0) return;
   emitSegmentChain({
