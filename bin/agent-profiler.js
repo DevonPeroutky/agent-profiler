@@ -118,7 +118,7 @@ async function serveStatic(urlPath, res) {
       // Vite-built CSS and Radix UI use inline style attributes for
       // animations/positioning. Scripts are bundle-only — no inline allowed.
       'Content-Security-Policy':
-        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'",
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://formspree.io",
     });
     res.end(buf);
   } catch (e) {

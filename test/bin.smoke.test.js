@@ -54,7 +54,7 @@ function startCli(extraArgs = []) {
 /**
  * Tiny GET helper using node:http (no external deps).
  * @param {string} url
- * @returns {Promise<{ status: number, body: string }>}
+ * @returns {Promise<{ status: number, headers: import('node:http').IncomingHttpHeaders, body: string }>}
  */
 async function get(url) {
   const { default: http } = await import('node:http');
@@ -65,7 +65,7 @@ async function get(url) {
       res.on('data', (c) => {
         body += c;
       });
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
     });
     req.on('error', reject);
     req.setTimeout(3000, () => req.destroy(new Error(`GET ${url} timed out`)));
@@ -121,9 +121,13 @@ test('boots, answers /api/health, shuts down cleanly on SIGTERM', async () => {
 test('serves index.html at /', async () => {
   const { proc, port } = await startCli();
   try {
-    const { status, body } = await get(`http://localhost:${port}/`);
+    const { status, headers, body } = await get(`http://localhost:${port}/`);
     assert.equal(status, 200);
     assert.match(body, /<html/i);
+    assert.match(
+      String(headers['content-security-policy']),
+      /connect-src 'self' https:\/\/formspree\.io/,
+    );
   } finally {
     proc.kill('SIGTERM');
     await once(proc, 'exit');

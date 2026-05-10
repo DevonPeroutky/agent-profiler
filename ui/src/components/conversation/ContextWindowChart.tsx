@@ -483,6 +483,12 @@ function ColorSwatch({ color }: { color: string }) {
   );
 }
 
+function DeltaBadge({ value }: { value: number }) {
+  const tone =
+    value > 0 ? 'text-emerald-500' : value < 0 ? 'text-rose-500' : 'text-muted-foreground/60';
+  return <span className={`ml-1 ${tone}`}>({signedFmt(value)})</span>;
+}
+
 function snippet(value: string, max: number): string {
   if (!value) return '';
   const collapsed = value.replace(/\s+/g, ' ').trim();
@@ -552,23 +558,10 @@ function ContextTooltip(props: TooltipProps) {
                 <ColorSwatch color={s.color} />
                 <span className="truncate">
                   {s.short} {fmt.n(row[s.key])}
+                  {row.delta ? <DeltaBadge value={row.delta[s.key]} /> : null}
                 </span>
               </span>
             ))}
-          </div>
-        </div>
-      ) : null}
-
-      {row.delta ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between font-mono uppercase text-muted-foreground">
-            <span>Δ from previous</span>
-            <span className="font-medium tabular-nums">{signedFmt(row.delta.total)}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 font-mono text-[10.5px] text-muted-foreground">
-            <span className="truncate">fresh {signedFmt(row.delta.freshInput)}</span>
-            <span className="truncate">read {signedFmt(row.delta.cacheRead)}</span>
-            <span className="truncate">write {signedFmt(row.delta.cacheCreation)}</span>
           </div>
         </div>
       ) : null}

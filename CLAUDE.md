@@ -44,7 +44,7 @@ The canonical predicate for "an assistant record that counts" is `isCanonicalAss
 
 ## Design principles
 
-### 0. Simplicity over completeness. Prioritize the waterfall UI above all.
+### 0. Simplicity over completeness. Prioritize the waterfall UI above all
 
 ### 1. The transformer is pure and deterministic
 
@@ -61,6 +61,7 @@ The canonical predicate for "an assistant record that counts" is `isCanonicalAss
 Timestamps describe **flush order, not causal order**. In slash-command sessions they're written at end-of-command with identical-millisecond values, while the subagents they dispatched ran minutes earlier. Identical timestamps across causally-distant records are normal, not a bug. Containment checks, nearest-neighbor, time-windowing, and precedence ordering by timestamp are all traps — they *look* structural and silently produce wrong answers that pass tests on the fixtures you happened to write but break on real transcripts.
 
 **The only legitimate uses of a timestamp:**
+
 - Computing `durationMs` for an already-paired `(tool_use, tool_result)` whose pairing was established structurally via `tool_use_id`.
 - Sorting events on a single span for *display* (chronological reading order in the UI), after the span itself was assembled structurally.
 - Rendering a relative time string in the UI.
@@ -151,7 +152,6 @@ Tool-call content is *not* a separate event — it produces a child tool span in
 - **Hook ingestion.** Hooks are fragile (undocumented `matcher` requirement, slash commands skip `UserPromptSubmit`, adapter bugs drop `agent_id`). Transcripts are complete and stable.
 - **Live push.** 5s polling from the UI is enough.
 - **Separate backend process.** Vite hosts the middleware. One process covers both dev and preview.
-- **Harness-agnostic abstraction.** Current scope is Claude Code only.
 
 ## File layout
 
