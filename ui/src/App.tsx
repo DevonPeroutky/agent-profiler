@@ -38,16 +38,25 @@ function formspreeErrorMessage(body: FormspreeErrorResponse | null): string {
   return messages && messages.length > 0 ? messages.join(' ') : 'Unable to submit interest.';
 }
 
+// Adapter-stamped attribute (registry guarantees it's set on every trace root).
+function harnessOf(t: TraceSummary): string {
+  const v = t.root.attributes['agent_trace.harness'];
+  return typeof v === 'string' && v.length > 0 ? v : 'unknown';
+}
+
 function groupConversations(traces: TraceSummary[]): ConversationSummary[] {
+  // Key on (harness, sessionId) — UUID collisions across harnesses are
+  // vanishingly unlikely but the registry guarantees independence of buckets.
   const bySession = new Map<string, TraceSummary[]>();
   for (const t of traces) {
-    const list = bySession.get(t.sessionId);
+    const key = `${harnessOf(t)}::${t.sessionId}`;
+    const list = bySession.get(key);
     if (list) list.push(t);
-    else bySession.set(t.sessionId, [t]);
+    else bySession.set(key, [t]);
   }
 
   const conversations: ConversationSummary[] = [];
-  for (const [sessionId, convTraces] of bySession.entries()) {
+  for (const convTraces of bySession.values()) {
     const turns: Turn[] = [];
     const unattached: UnattachedGroup[] = [];
     for (const t of convTraces) {
@@ -69,7 +78,8 @@ function groupConversations(traces: TraceSummary[]): ConversationSummary[] {
     }
 
     conversations.push({
-      sessionId,
+      harness: harnessOf(convTraces[0]),
+      sessionId: convTraces[0].sessionId,
       turns,
       unattached,
       startMs,

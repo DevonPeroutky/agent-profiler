@@ -46,7 +46,7 @@ export function ConversationView({ conversation, selectedSpanId, onSelectSpan }:
             <InferenceFlow conversation={conversation} onSelectSpan={onSelectSpan} />
           </TabsContent>
           <TabsContent value="debug">
-            <ConversationDebug sessionId={conversation.sessionId} />
+            <ConversationDebug harness={conversation.harness} sessionId={conversation.sessionId} />
           </TabsContent>
         </Tabs>
       </div>
