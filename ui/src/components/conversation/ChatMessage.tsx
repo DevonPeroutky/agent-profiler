@@ -1,12 +1,19 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { HarnessAvatar, harnessMeta } from '@/lib/harnesses';
 import { cn, formatRelativeTime, formatTokens } from '@/lib/utils';
 import { ChevronDown, User } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { TurnOutcome } from './transforms';
 
 interface Props {
+  /**
+   * Harness id (e.g. `'claude-code'`, `'codex'`) — drives the assistant
+   * avatar + display name. Defaults gracefully to a generic "Assistant"
+   * label when the harness is unknown to the UI registry.
+   */
+  harness: string;
   body: string;
   bodyMuted?: boolean;
   omitUserRow?: boolean;
@@ -66,9 +73,6 @@ function Row({ avatar, avatarRef, avatarBare, title, body, badges }: RowProps) {
 }
 
 const userAvatarIcon = <User className="h-3.5 w-3.5" aria-hidden="true" />;
-const claudeAvatarIcon = (
-  <img src="/images/claude-logo.png" alt="" className="h-6 w-6 object-contain" aria-hidden="true" />
-);
 
 function outcomeContent(outcome: TurnOutcome): ReactNode {
   switch (outcome.kind) {
@@ -88,6 +92,7 @@ function outcomeContent(outcome: TurnOutcome): ReactNode {
 }
 
 export function ChatMessage({
+  harness,
   body,
   bodyMuted,
   omitUserRow,
@@ -106,6 +111,8 @@ export function ChatMessage({
   assistantAvatarRef,
   children,
 }: Props) {
+  const assistantName = harnessMeta(harness).displayName;
+  const assistantAvatar = <HarnessAvatar harness={harness} />;
   const showMode = finalMode && finalMode !== 'default';
   const showTokens = typeof contextTokens === 'number' && contextTokens > 0;
   const showAttachments = attachmentCount > 0;
@@ -221,10 +228,10 @@ export function ChatMessage({
         <Row avatar={userAvatarIcon} title="You" body={userBody} badges={extraBadges} />
       )}
       <Row
-        avatar={claudeAvatarIcon}
+        avatar={assistantAvatar}
         avatarRef={assistantAvatarRef}
         avatarBare
-        title="Claude"
+        title={assistantName}
         body={assistantBody}
         badges={assistantBadges}
       />

@@ -107,6 +107,7 @@ export function TurnMessages({ conversation, selectedSpanId, onSelectSpan }: Pro
           return (
             <ChatMessage
               key={entry.key}
+              harness={conversation.harness}
               body={entry.prompt ?? ''}
               isOpen={expanded.has(entry.key)}
               onToggle={() => toggle(entry.key)}
@@ -141,6 +142,7 @@ export function TurnMessages({ conversation, selectedSpanId, onSelectSpan }: Pro
           return (
             <ChatMessage
               key={entry.key}
+              harness={conversation.harness}
               body={`${entry.subagentCount} subagent${entry.subagentCount === 1 ? '' : 's'} dispatched without parent turn`}
               bodyMuted
               omitUserRow
