@@ -39,6 +39,11 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
+      # Trusted Publisher OIDC token exchange requires npm >= 11.5.1.
+      # Node 20 ships npm 10.x, so upgrade explicitly.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
       - name: Install
         run: npm ci
 
@@ -48,12 +53,6 @@ jobs:
       - name: Smoke test before publish
         run: node --test test/bin.smoke.test.js
 
-      # Trusted Publishers: configure on npmjs.com → package settings.
-      # Provenance requires id-token: write (set above).
+      # Auth happens via Trusted Publishers (OIDC). No NPM_TOKEN needed.
       - name: Publish
         run: npm publish --provenance --access public
-        env:
-          # NPM_TOKEN is only used as a fallback if Trusted Publishers
-          # is not yet configured. Once Trusted Publishers is set up on
-          # npmjs.com you can delete this secret entirely.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
