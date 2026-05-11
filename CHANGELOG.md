@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.0...v0.2.1) (2026-05-11)
+
+
+### Bug Fixes
+
+* Added .git hooks for linting and typecheck ([df85c63](https://github.com/DevonPeroutky/agent-profiler/commit/df85c63bac6ace4d9ed02c2c61add70a733cb57b))
+* make ConversationDebug view support Codex ([947295d](https://github.com/DevonPeroutky/agent-profiler/commit/947295d2aa8c47fe2fdba0a9acdc9ba97f418767))
+
 ## [0.2.0](https://github.com/DevonPeroutky/agent-profiler/compare/v0.1.0...v0.2.0) (2026-05-11)
 
 

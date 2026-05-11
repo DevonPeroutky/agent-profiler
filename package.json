@@ -1,9 +1,17 @@
 {
   "name": "agent-profiler",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Local trace viewer for Claude Code conversations — reads session transcripts and renders a waterfall UI.",
-  "keywords": ["claude", "claude-code", "tracing", "observability", "agent", "llm", "anthropic"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "tracing",
+    "observability",
+    "agent",
+    "llm",
+    "anthropic"
+  ],
   "homepage": "https://github.com/devonperoutky/agent-profiler#readme",
   "bugs": {
     "url": "https://github.com/devonperoutky/agent-profiler/issues"
@@ -17,11 +25,19 @@
   "engines": {
     "node": ">=20"
   },
-  "workspaces": ["ui"],
+  "workspaces": [
+    "ui"
+  ],
   "bin": {
     "agent-profiler": "./bin/agent-profiler.js"
   },
-  "files": ["bin/", "lib/", "ui/dist/", "LICENSE", "README.md"],
+  "files": [
+    "bin/",
+    "lib/",
+    "ui/dist/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "dev": "npm run dev -w ui",
     "build": "npm run build -w ui",
