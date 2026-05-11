@@ -1,5 +1,6 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getFirstAssistantPreview, selectConversationPreview } from '@/lib/conversation';
+import { HarnessAvatar, harnessMeta } from '@/lib/harnesses';
 import { cn, formatRelativeTime, formatTimestamp } from '@/lib/utils';
 import type { ConversationSummary } from '@/types';
 import { ChevronRight, Copy, Folder, FolderOpen } from 'lucide-react';
@@ -155,6 +156,16 @@ export function ConversationList({ conversations, selectedSessionId, onSelect }:
                         }
                       >
                         <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            title={harnessMeta(c.harness).displayName}
+                            aria-label={harnessMeta(c.harness).displayName}
+                            className="flex h-4 w-4 shrink-0 items-center justify-center"
+                          >
+                            <HarnessAvatar
+                              harness={c.harness}
+                              className="h-3.5 w-3.5 object-contain"
+                            />
+                          </span>
                           <span
                             className={cn(
                               'truncate text-xs min-w-0 flex-1',

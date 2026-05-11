@@ -7,12 +7,19 @@
 // concerns: data adapters can't be imported into the browser bundle.
 
 import type { CSSProperties } from 'react';
+import { cn } from './utils';
 
 export interface HarnessMeta {
   /** Display name used in chat row titles, badges, etc. */
   displayName: string;
   /** Path under /public for the harness logo (square asset). */
   logoSrc: string;
+  /**
+   * When true, apply `dark:invert` so a black-on-transparent logo (e.g. the
+   * OpenAI SVG) becomes visible on dark backgrounds. Leave unset for full-
+   * color logos (the Claude PNG, etc.) that already work in both themes.
+   */
+  invertOnDark?: boolean;
 }
 
 /**
@@ -28,6 +35,7 @@ const REGISTRY: Record<string, HarnessMeta> = {
   codex: {
     displayName: 'Codex',
     logoSrc: '/images/openai-logo.svg',
+    invertOnDark: true,
   },
 };
 
@@ -50,7 +58,8 @@ interface AvatarProps {
 
 /**
  * Square logo for the harness. Defaults to 6x6 in Tailwind units; callers can
- * override via className.
+ * override via className. Decorative by default (aria-hidden) — wrap with a
+ * labeled span when the harness identity matters to assistive tech.
  */
 export function HarnessAvatar({ harness, className, style }: AvatarProps) {
   const meta = harnessMeta(harness);
@@ -59,7 +68,7 @@ export function HarnessAvatar({ harness, className, style }: AvatarProps) {
       src={meta.logoSrc}
       alt=""
       aria-hidden="true"
-      className={className ?? 'h-6 w-6 object-contain'}
+      className={cn(className ?? 'h-6 w-6 object-contain', meta.invertOnDark && 'dark:invert')}
       style={style}
     />
   );
