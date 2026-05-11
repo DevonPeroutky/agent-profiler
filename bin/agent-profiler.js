@@ -9,8 +9,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { enumerate } from '../lib/adapters/registry.js';
 import { tracesHandler, transcriptHandler } from '../lib/traces/api-handler.js';
-import { listSessions } from '../lib/traces/sessions.js';
 
 const PKG_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DIST_ROOT = join(PKG_ROOT, 'ui', 'dist');
@@ -47,7 +47,7 @@ Options:
 Endpoints:
   GET  /                Single-page UI
   POST /api/traces      Trace tree for every session under ~/.claude/projects
-  GET  /api/transcript  Raw JSONL bundle for one session (?sessionId=…)
+  GET  /api/transcript  Raw JSONL bundle for one session (?harness=&sessionId=…)
   GET  /api/health      { ok, version, sessionCount, uptimeSeconds }
 
 Env:
@@ -137,9 +137,15 @@ async function serveStatic(urlPath, res) {
 function healthHandler(res) {
   let sessionCount = 0;
   try {
-    sessionCount = listSessions().length;
+    for (const adapter of enumerate()) {
+      try {
+        sessionCount += adapter.discover().length;
+      } catch {
+        // one adapter's disk read failing shouldn't take down the health check
+      }
+    }
   } catch {
-    // disk read can fail (e.g. ~/.claude/projects/ missing); report 0
+    // registry enumeration failed (shouldn't happen); report 0
   }
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(

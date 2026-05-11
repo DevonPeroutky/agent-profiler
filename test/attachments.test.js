@@ -8,7 +8,7 @@ import {
   ATTACHMENT_HANDLERS,
   KNOWN_GENERIC_ATTACHMENT_TYPES,
   toTraces,
-} from '../lib/traces/traces.js';
+} from '../lib/claude-code/traces.js';
 
 /**
  * Build a minimal valid record. The transformer ignores fields it doesn't
@@ -482,13 +482,13 @@ test('readJsonl _rowIndex matches array position 1:1 (Debug tab alignment)', asy
     ].join('\n'),
   );
   try {
-    const { readJsonl } = await import(`../lib/traces/transcripts.js?row-idx-${Date.now()}`);
+    const { readJsonl } = await import(`../lib/claude-code/transcripts.js?row-idx-${Date.now()}`);
   } catch {}
   // The exported surface only includes readTranscript; readJsonl is internal.
   // Test it via readTranscript on a synthetic SessionFile.
   const subDir = path.join(os.tmpdir(), `row-idx-sub-${Date.now()}`);
   fs.mkdirSync(subDir, { recursive: true });
-  const { readTranscript } = await import('../lib/traces/transcripts.js');
+  const { readTranscript } = await import('../lib/claude-code/transcripts.js');
   const bundle = readTranscript({
     sessionId: 'x',
     mainPath: tmp,

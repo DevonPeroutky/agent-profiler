@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HarnessAvatar } from '@/lib/harnesses';
 import { cn } from '@/lib/utils';
 import type { ConversationSummary, SpanNode } from '@/types';
 import { Brain, Check, ChevronDown, Copy, User } from 'lucide-react';
@@ -57,6 +58,7 @@ export function ConversationTrajectory({ conversation }: Props) {
             <TrajectoryRow
               key={s.id}
               step={s}
+              harness={conversation.harness}
               isOpen={expanded.has(s.id)}
               onToggle={() => toggle(s.id)}
             />
@@ -130,16 +132,14 @@ function StepBar({
 
 interface RowProps {
   step: TrajectoryStep;
+  harness: string;
   isOpen: boolean;
   onToggle: () => void;
 }
 
 const userAvatarIcon = <User className="h-3.5 w-3.5" aria-hidden="true" />;
-const claudeAvatarIcon = (
-  <img src="/images/claude-logo.png" alt="" className="h-6 w-6 object-contain" aria-hidden="true" />
-);
 
-function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
+function TrajectoryRow({ step, harness, isOpen, onToggle }: RowProps) {
   const isUser = step.role === 'user';
   const innerCells = (
     <>
@@ -150,7 +150,9 @@ function TrajectoryRow({ step, isOpen, onToggle }: RowProps) {
         </span>
       ) : (
         <Avatar className="h-6 w-6 bg-background">
-          <AvatarFallback className="bg-background">{claudeAvatarIcon}</AvatarFallback>
+          <AvatarFallback className="bg-background">
+            <HarnessAvatar harness={harness} />
+          </AvatarFallback>
         </Avatar>
       )}
       <span className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
+  harness: string;
   sessionId: string;
 }
 
@@ -26,13 +27,16 @@ type LoadState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; bundle: TranscriptBundle };
 
-export function ConversationDebug({ sessionId }: Props) {
+export function ConversationDebug({ harness, sessionId }: Props) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     setState({ kind: 'loading' });
-    fetch(`/api/transcript?sessionId=${encodeURIComponent(sessionId)}`)
+    const url =
+      `/api/transcript?harness=${encodeURIComponent(harness)}` +
+      `&sessionId=${encodeURIComponent(sessionId)}`;
+    fetch(url)
       .then(async (r) => {
         if (!r.ok) {
           const body = await r.json().catch(() => ({}));
@@ -54,7 +58,7 @@ export function ConversationDebug({ sessionId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [harness, sessionId]);
 
   if (state.kind === 'loading') {
     return (

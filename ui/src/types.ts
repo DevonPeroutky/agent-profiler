@@ -77,6 +77,13 @@ export interface TracesResponse {
 }
 
 export interface ConversationSummary {
+  /**
+   * Adapter id of the harness that produced this conversation
+   * (e.g. `'claude-code'`, `'codex'`). Derived in `groupConversations`
+   * from `trace.root.attributes['agent_trace.harness']`; the registry
+   * guarantees the attribute is present on every trace root.
+   */
+  harness: string;
   sessionId: string;
   turns: Turn[];
   unattached: UnattachedGroup[];
