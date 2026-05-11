@@ -59,7 +59,7 @@ jobs:
         if: matrix.node == 20
         run: |
           npm pack
-          npm install -g ./agent-profiler-*.tgz
+          npm install -g ./ghostship-agent-profiler-*.tgz
           agent-profiler --version
           agent-profiler --port 0 --no-open > /tmp/cli.log 2>&1 &
           PID=$!

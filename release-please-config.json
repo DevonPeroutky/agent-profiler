@@ -9,7 +9,7 @@
   "prerelease": false,
   "packages": {
     ".": {
-      "package-name": "agent-profiler",
+      "package-name": "@ghostship/agent-profiler",
       "changelog-path": "CHANGELOG.md"
     }
   }

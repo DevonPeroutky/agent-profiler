@@ -1,5 +1,5 @@
 {
-  "name": "agent-profiler",
+  "name": "@ghostship/agent-profiler",
   "version": "0.2.1",
   "type": "module",
   "description": "Local trace viewer for Claude Code conversations — reads session transcripts and renders a waterfall UI.",

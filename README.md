@@ -1,4 +1,4 @@
-<p align="center"><code>npx agent-profiler</code><br />or <code>npm i -g agent-profiler</code></p>
+<p align="center"><code>npx @ghostship/agent-profiler</code><br />or <code>npm i -g @ghostship/agent-profiler</code></p>
 <p align="center"><strong>agent-profiler</strong> is a local, open-source trace viewer for agent harness sessions.</p>
 <p align="center"><strong>Supported harnesses:</strong> Codex and Claude Code</p>
 <p align="center">
@@ -22,13 +22,13 @@ Requirements:
 Run with `npx`:
 
 ```shell
-npx agent-profiler
+npx @ghostship/agent-profiler
 ```
 
 Or install globally:
 
 ```shell
-npm install -g agent-profiler
+npm install -g @ghostship/agent-profiler
 agent-profiler
 ```
 
