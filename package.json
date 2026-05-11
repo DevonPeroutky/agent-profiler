@@ -12,13 +12,13 @@
     "llm",
     "anthropic"
   ],
-  "homepage": "https://github.com/devonperoutky/agent-profiler#readme",
+  "homepage": "https://github.com/DevonPeroutky/agent-profiler#readme",
   "bugs": {
-    "url": "https://github.com/devonperoutky/agent-profiler/issues"
+    "url": "https://github.com/DevonPeroutky/agent-profiler/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/devonperoutky/agent-profiler.git"
+    "url": "git+https://github.com/DevonPeroutky/agent-profiler.git"
   },
   "license": "Apache-2.0",
   "author": "Devon Peroutky",
