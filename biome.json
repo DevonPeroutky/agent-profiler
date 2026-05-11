@@ -11,7 +11,8 @@
       "ui/node_modules/**",
       "node_modules/**",
       "**/*.tsbuildinfo",
-      ".release-please-manifest.json"
+      ".release-please-manifest.json",
+      "package.json"
     ]
   },
   "formatter": {
