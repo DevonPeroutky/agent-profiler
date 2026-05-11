@@ -12,7 +12,13 @@ import { cn } from './utils';
 export interface HarnessMeta {
   /** Display name used in chat row titles, badges, etc. */
   displayName: string;
-  /** Path under /public for the harness logo (square asset). */
+  /**
+   * Path under /public for the harness logo (square asset). Convention:
+   * logos must be **tight-cropped** — viewBox (SVG) or raster dimensions
+   * should hug the visible geometry. The renderer doesn't compensate for
+   * baked-in padding, so an asset with internal whitespace will look
+   * undersized next to other logos at the same CSS box size.
+   */
   logoSrc: string;
   /**
    * When true, apply `dark:invert` so a black-on-transparent logo (e.g. the
