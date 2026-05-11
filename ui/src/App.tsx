@@ -125,6 +125,7 @@ export function App() {
     [conversations, selectedSessionId],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedSessionId is the intentional trigger — clear the selected span whenever the user navigates to a different conversation
   useEffect(() => {
     setSelectedSpan(null);
   }, [selectedSessionId]);

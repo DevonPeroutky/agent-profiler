@@ -40,6 +40,7 @@ const FIT_VIEW_OPTIONS = { padding: 0.15, maxZoom: 1 } as const;
 // based on container width, which depends on layout).
 function FitOnGraphChange({ depKey }: { depKey: string }) {
   const { fitView } = useReactFlow();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: depKey is the intentional trigger — refit when the graph identity changes
   useEffect(() => {
     const fitOnce = () => fitView(FIT_VIEW_OPTIONS);
     const rafId = requestAnimationFrame(fitOnce);
@@ -74,9 +75,9 @@ export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
   // Reset to the default-collapsed shape when the user navigates to a different
   // conversation. Live updates within the same conversation (e.g. token polling)
   // preserve any manual expand/collapse the user has applied.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on sessionId only — re-running on every conversation update would discard manual expand/collapse state
   useEffect(() => {
     setCollapsedSegmentIds(computeInitialCollapsed(buildGraph(model, conversation).nodes));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation.sessionId]);
 
   const toggleSegmentCollapsed = useCallback((segmentId: string) => {

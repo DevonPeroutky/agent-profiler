@@ -34,12 +34,13 @@ export function TurnMessages({ conversation, selectedSpanId, onSelectSpan }: Pro
 
   useEffect(() => {
     setExpanded(newestKey ? new Set([newestKey]) : new Set());
-  }, [conversation.sessionId, newestKey]);
+  }, [newestKey]);
 
   const railContainerRef = useRef<HTMLDivElement | null>(null);
   const lastAvatarRef = useRef<HTMLSpanElement | null>(null);
   const [railHeight, setRailHeight] = useState<number | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers — body reads only refs, but rail height must recompute when turn count or expansion changes
   useLayoutEffect(() => {
     const update = () => {
       const container = railContainerRef.current;

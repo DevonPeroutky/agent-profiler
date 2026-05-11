@@ -36,6 +36,7 @@ export function ToolChildChip({ span, onSelect }: Props) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
+        {/* biome-ignore lint/a11y/useSemanticElements: intentionally a <span> — nests inside InferenceNodeCard's outer button without invalid nested-interactive HTML */}
         <span
           role="button"
           tabIndex={0}

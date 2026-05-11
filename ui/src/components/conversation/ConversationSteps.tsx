@@ -93,10 +93,6 @@ const fmt = {
   },
 };
 
-function totalTokens(t: StepTokens): number {
-  return t.input + t.cacheRead + t.cacheCreation + t.output;
-}
-
 function shortReq(id: string): string {
   return id.length <= 10 ? id : `req…${id.slice(-6)}`;
 }
@@ -349,6 +345,7 @@ function StepRow({
       </span>
       <span className="relative flex items-stretch">
         {connectors.map((kind, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: connectors are positional rail segments; kinds repeat
           <Connector key={i} kind={kind} />
         ))}
         <span

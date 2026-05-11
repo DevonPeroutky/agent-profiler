@@ -243,6 +243,7 @@ export function SpanRow({
     : emphasisClass && cn('font-semibold', emphasisClass);
 
   const row = (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the row contains its own keyboard-reachable controls (chevron button, etc.); the click is a convenience selector
     <div
       className={cn(
         'group flex min-w-max cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-accent/40',

@@ -287,6 +287,7 @@ export function ContextWindowChart({ conversation }: Props) {
               <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">
                 {stops.map((s, i) => (
                   <stop
+                    // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops are positional and don't reorder
                     key={i}
                     offset={`${(s.offset * 100).toFixed(4)}%`}
                     stopColor={s.color}

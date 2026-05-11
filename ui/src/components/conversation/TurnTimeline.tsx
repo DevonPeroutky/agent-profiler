@@ -81,6 +81,7 @@ export function TurnTimeline({ turn, selectedSpanId, onSelectSpan }: Props) {
           case 'tools':
             return (
               <ToolCallsBlock
+                // biome-ignore lint/suspicious/noArrayIndexKey: turn timeline segments are positional and don't reorder
                 key={`tools-${i}`}
                 spans={seg.spans}
                 selectedSpanId={selectedSpanId}
@@ -88,8 +89,10 @@ export function TurnTimeline({ turn, selectedSpanId, onSelectSpan }: Props) {
               />
             );
           case 'message':
+            // biome-ignore lint/suspicious/noArrayIndexKey: turn timeline segments are positional and don't reorder
             return <MessageBlock key={`msg-${i}`} text={seg.text} usage={seg.usage} />;
           case 'reasoning':
+            // biome-ignore lint/suspicious/noArrayIndexKey: turn timeline segments are positional and don't reorder
             return <ReasoningBlock key={`think-${i}`} text={seg.text} />;
         }
       })}

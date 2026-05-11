@@ -281,10 +281,6 @@ function inferenceSubtitle(span: SpanNode): string {
   return typeof model === 'string' && model ? model : 'inference';
 }
 
-function truncate(s: string, max: number): string {
-  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
-}
-
 function isStructuralSpan(span: SpanNode): boolean {
   return Boolean(span.attributes['agent_trace.event_type']) || span.name === 'inference';
 }

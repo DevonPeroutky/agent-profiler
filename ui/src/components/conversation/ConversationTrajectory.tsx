@@ -292,6 +292,7 @@ function NestedEntries({
   return (
     <div className="space-y-2.5">
       {entries.map((entry, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: trajectory entries are positional and rendered in source order
         <EntryBlock key={i} entry={entry} inferences={inferences} />
       ))}
     </div>
@@ -530,8 +531,8 @@ function ToolCallBlock({
             <ToolSection label="Input" copyText={inputRaw}>
               {params.kind === 'kv' ? (
                 <dl className="space-y-3 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[11.5px]">
-                  {params.entries.map(([k, v], i) => (
-                    <div key={i} className="space-y-1">
+                  {params.entries.map(([k, v]) => (
+                    <div key={k} className="space-y-1">
                       <dt className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground">
                         {k}
                       </dt>

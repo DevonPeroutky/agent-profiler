@@ -207,6 +207,7 @@ export function ChatMessage({
   ) : null;
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: wraps Collapsible + nested interactive children; a <button> would produce invalid nested-interactive HTML
     <div
       role="button"
       tabIndex={0}
@@ -239,6 +240,7 @@ export function ChatMessage({
         <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
           <div
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
             className="my-3 mr-6 cursor-auto rounded-md border border-border/60 bg-muted/20 ml-[calc(1.5rem+24px+0.75rem)]"
           >
             {children}

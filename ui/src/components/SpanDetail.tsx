@@ -240,6 +240,7 @@ function EventsList({ events }: { events: SpanNode['events'] }) {
       <div className="text-[10px] font-semibold uppercase text-muted-foreground">Events</div>
       <ul className="mt-2 space-y-1.5">
         {events.map((e, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: events are presorted chronologically and don't reorder; no stable id on SpanNode event
           <li key={i} className="rounded border border-border/60 bg-muted/30 p-2">
             <div className="font-mono text-[10px]">{e.name}</div>
             {e.attributes && Object.keys(e.attributes).length > 0 && (

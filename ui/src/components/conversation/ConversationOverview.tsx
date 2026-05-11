@@ -175,6 +175,7 @@ function StackedBar({ total, segments }: StackedBarProps) {
     <div className="mt-1.5 flex h-2.5 overflow-hidden rounded bg-muted">
       {segments.map((seg, i) => (
         <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: stacked-bar segments are positional and don't reorder
           key={i}
           className="block h-full"
           style={{

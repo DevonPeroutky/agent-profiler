@@ -155,6 +155,7 @@ function RecordList({ title, subtitle, records, defaultOpen = false }: RecordLis
           {records.length === 0 ? (
             <div className="px-4 py-3 text-[12px] italic text-muted-foreground">(empty)</div>
           ) : (
+            // biome-ignore lint/suspicious/noArrayIndexKey: transcript records are append-only and rendered in source order; no stable id on raw JSONL record
             records.map((rec, i) => <RecordRow key={i} record={rec} index={i} />)
           )}
         </CollapsibleContent>

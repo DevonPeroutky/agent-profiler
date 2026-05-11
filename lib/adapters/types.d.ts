@@ -24,7 +24,7 @@
 //    prefixes `${harness}:` after transform() returns so cross-harness
 //    collisions are impossible.
 
-import type { TraceSummary } from '../claude-code/traces.js';
+import type { TraceSummary } from '../traces/types.js';
 
 export interface SessionFile {
   /** Adapter id of the session. Set by registry/discover. */

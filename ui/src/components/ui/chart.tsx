@@ -66,6 +66,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     <style
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: shadcn chart theme variables are computed locally from typed config — no untrusted input
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(
