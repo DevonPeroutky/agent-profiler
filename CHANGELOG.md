@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.1...v0.2.2) (2026-05-11)
+
+
+### Bug Fixes
+
+* package.json formatting ([a63d772](https://github.com/DevonPeroutky/agent-profiler/commit/a63d772fdfb8ea44cd3d41b62e0a477c2271f711))
+* rename ([941c056](https://github.com/DevonPeroutky/agent-profiler/commit/941c056e2ed9330eae5ec5d2856bc725aed5765d))
+* stop having biome complain about release me formatting ([ffbb66d](https://github.com/DevonPeroutky/agent-profiler/commit/ffbb66d5df0698e5a1e561c52ebb6b4370356a32))
+
 ## [0.2.1](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.0...v0.2.1) (2026-05-11)
 
 
