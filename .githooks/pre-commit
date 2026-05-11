@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+
+# Mirrors the checks CI runs, minus `build` (kept out for speed).
+# Bypass with `git commit --no-verify` when you really need to.
+
+echo "→ lint"
+npm run lint
+
+echo "→ typecheck"
+npm run typecheck
+
+echo "→ test"
+npm test
