@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { type DebugGroup, type DebugRecord, bundleToGroups } from '@/lib/debug-bundle';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -9,23 +10,10 @@ interface Props {
   sessionId: string;
 }
 
-type TranscriptRecord = Record<string, unknown>;
-
-interface SubagentTranscript {
-  agentId: string;
-  agentType: string | null;
-  records: TranscriptRecord[];
-}
-
-interface TranscriptBundle {
-  main: TranscriptRecord[];
-  subagents: SubagentTranscript[];
-}
-
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; bundle: TranscriptBundle };
+  | { kind: 'ready'; bundle: unknown };
 
 export function ConversationDebug({ harness, sessionId }: Props) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -42,7 +30,7 @@ export function ConversationDebug({ harness, sessionId }: Props) {
           const body = await r.json().catch(() => ({}));
           throw new Error(body.error ?? `HTTP ${r.status}`);
         }
-        return (await r.json()) as TranscriptBundle;
+        return (await r.json()) as unknown;
       })
       .then((bundle) => {
         if (!cancelled) setState({ kind: 'ready', bundle });
@@ -81,26 +69,16 @@ export function ConversationDebug({ harness, sessionId }: Props) {
     );
   }
 
-  const { main, subagents } = state.bundle;
-  const total = main.length + subagents.reduce((n, sa) => n + sa.records.length, 0);
+  const groups = bundleToGroups(harness, state.bundle);
+  const total = groups.reduce((n, g) => n + g.records.length, 0);
 
   return (
     <section>
       <Header total={total} />
       <div className="space-y-6">
-        <RecordList
-          title="Main transcript"
-          subtitle={`${main.length} record${main.length === 1 ? '' : 's'}`}
-          records={main}
-          defaultOpen
-        />
-        {subagents.map((sa) => (
-          <RecordList
-            key={sa.agentId}
-            title={`Subagent ${sa.agentType ?? 'unknown'}`}
-            subtitle={`${sa.records.length} record${sa.records.length === 1 ? '' : 's'} · ${sa.agentId}`}
-            records={sa.records}
-          />
+        {groups.map((g, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: groups order is deterministic from bundleToGroups; titles may collide across subagents of same type
+          <RecordList key={i} group={g} />
         ))}
       </div>
     </section>
@@ -120,15 +98,8 @@ function Header({ total }: { total: number | null }) {
   );
 }
 
-interface RecordListProps {
-  title: string;
-  subtitle: string;
-  records: TranscriptRecord[];
-  defaultOpen?: boolean;
-}
-
-function RecordList({ title, subtitle, records, defaultOpen = false }: RecordListProps) {
-  const [open, setOpen] = useState(defaultOpen);
+function RecordList({ group }: { group: DebugGroup }) {
+  const [open, setOpen] = useState(group.defaultOpen ?? false);
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-background">
       <button
@@ -140,8 +111,10 @@ function RecordList({ title, subtitle, records, defaultOpen = false }: RecordLis
           !open && 'border-b-0',
         )}
       >
-        <span className="font-mono text-[12px] font-semibold text-foreground">{title}</span>
-        <span className="ml-auto font-mono text-[11px] text-muted-foreground">{subtitle}</span>
+        <span className="font-mono text-[12px] font-semibold text-foreground">{group.title}</span>
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+          {group.subtitle}
+        </span>
         <ChevronDown
           aria-hidden="true"
           className={cn(
@@ -152,11 +125,13 @@ function RecordList({ title, subtitle, records, defaultOpen = false }: RecordLis
       </button>
       <Collapsible open={open}>
         <CollapsibleContent className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-down motion-safe:data-[state=closed]:animate-collapsible-up">
-          {records.length === 0 ? (
+          {group.records.length === 0 ? (
             <div className="px-4 py-3 text-[12px] italic text-muted-foreground">(empty)</div>
           ) : (
-            // biome-ignore lint/suspicious/noArrayIndexKey: transcript records are append-only and rendered in source order; no stable id on raw JSONL record
-            records.map((rec, i) => <RecordRow key={i} record={rec} index={i} />)
+            group.records.map((rec, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: transcript records are append-only and rendered in source order; no stable id on raw JSONL record
+              <RecordRow key={i} record={rec} index={i} summarize={group.summarize} />
+            ))
           )}
         </CollapsibleContent>
       </Collapsible>
@@ -167,12 +142,14 @@ function RecordList({ title, subtitle, records, defaultOpen = false }: RecordLis
 function RecordRow({
   record,
   index,
+  summarize,
 }: {
-  record: TranscriptRecord;
+  record: DebugRecord;
   index: number;
+  summarize: DebugGroup['summarize'];
 }) {
   const [open, setOpen] = useState(false);
-  const summary = useMemo(() => summarize(record), [record]);
+  const summary = useMemo(() => summarize(record), [record, summarize]);
   const json = useMemo(() => JSON.stringify(record, null, 2), [record]);
   return (
     <div className="border-b border-border last:border-b-0">
@@ -226,52 +203,4 @@ function TypeBadge({ type }: { type: string }) {
       {type}
     </Badge>
   );
-}
-
-interface Summary {
-  type: string;
-  preview: string;
-}
-
-function summarize(record: TranscriptRecord): Summary {
-  const rawType = String(record.type ?? 'unknown');
-  let hasToolResult = false;
-  const preview = (() => {
-    const message = record.message;
-    if (message && typeof message === 'object') {
-      const content = (message as { content?: unknown }).content;
-      if (typeof content === 'string') return collapse(content);
-      if (Array.isArray(content)) {
-        const parts: string[] = [];
-        for (const block of content) {
-          if (!block || typeof block !== 'object') continue;
-          const b = block as Record<string, unknown>;
-          const kind = String(b.type ?? '');
-          if (kind === 'text' && typeof b.text === 'string') {
-            parts.push(collapse(b.text));
-          } else if (kind === 'thinking' && typeof b.thinking === 'string') {
-            parts.push(`[thinking] ${collapse(b.thinking)}`);
-          } else if (kind === 'tool_use') {
-            parts.push(`[tool_use ${String(b.name ?? '')}]`);
-          } else if (kind === 'tool_result') {
-            hasToolResult = true;
-            const tid = String(b.tool_use_id ?? '');
-            parts.push(`[tool_result ${tid.slice(0, 12)}…]`);
-          } else {
-            parts.push(`[${kind}]`);
-          }
-        }
-        return parts.join(' · ');
-      }
-    }
-    if (typeof record.summary === 'string') return collapse(record.summary);
-    return Object.keys(record).slice(0, 8).join(', ');
-  })();
-  const type = rawType === 'user' && hasToolResult ? 'tool' : rawType;
-  return { type, preview };
-}
-
-function collapse(s: string): string {
-  const flat = s.replace(/\s+/g, ' ').trim();
-  return flat.length <= 200 ? flat : `${flat.slice(0, 199)}…`;
 }
