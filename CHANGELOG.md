@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.2...v0.2.3) (2026-05-11)
+
+
+### Bug Fixes
+
+* match repo URL case to GitHub canonical ([0c32acb](https://github.com/DevonPeroutky/agent-profiler/commit/0c32acb8055d260144c2ca68f38854887d2decd9))
+* match repo URL case to GitHub canonical (DevonPeroutky) ([2a1d3ca](https://github.com/DevonPeroutky/agent-profiler/commit/2a1d3caa7fd7c0ac47668670c6e017d9f76adfe8))
+
 ## [0.2.2](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.1...v0.2.2) (2026-05-11)
 
 
