@@ -6,6 +6,8 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
   useReactFlow,
 } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,7 +19,7 @@ import { layoutGraph } from './layoutGraph';
 import { SubagentSegmentNode } from './nodes/SubagentSegmentNode';
 import { TurnSegmentNode } from './nodes/TurnSegmentNode';
 import { UserPromptNode } from './nodes/UserPromptNode';
-import type { InferenceFlowNode } from './types';
+import type { InferenceFlowEdge, InferenceFlowNode } from './types';
 
 const nodeTypes = {
   turnSegment: TurnSegmentNode,
@@ -89,11 +91,18 @@ export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
     });
   }, []);
 
-  const { nodes, edges } = useMemo(() => {
+  const [nodes, setNodes, onNodesChange] = useNodesState<InferenceFlowNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<InferenceFlowEdge>([]);
+
+  // Re-run layout whenever the underlying model, conversation, or collapse state
+  // changes. Drag-induced position updates flow through onNodesChange and live in
+  // local state until the next layout pass overwrites them.
+  useEffect(() => {
     const built = buildGraph(model, conversation);
     const laid = layoutGraph(built.nodes, built.edges, model, conversation, collapsedSegmentIds);
-    return { nodes: laid.nodes, edges: styleEdges(laid.edges) };
-  }, [model, conversation, collapsedSegmentIds]);
+    setNodes(laid.nodes);
+    setEdges(styleEdges(laid.edges));
+  }, [model, conversation, collapsedSegmentIds, setNodes, setEdges]);
 
   const ctx = useMemo(
     () => ({ onSelectSpan, collapsedSegmentIds, toggleSegmentCollapsed }),
@@ -106,10 +115,11 @@ export function InferenceGraph({ model, conversation, onSelectSpan }: Props) {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={FIT_VIEW_OPTIONS}
-          nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable
           minZoom={0.2}

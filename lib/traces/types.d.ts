@@ -89,4 +89,10 @@ export type TraceSummary = Turn | UnattachedGroup;
 
 export interface TracesResponse {
   traces: TraceSummary[];
+  /**
+   * Server-computed fingerprint over the served slice. Stable across no-op
+   * polls; changes when any session is added, removed, or modified. Clients
+   * may short-circuit re-render work when this matches the previous value.
+   */
+  version: string;
 }
