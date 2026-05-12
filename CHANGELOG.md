@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.4...v0.2.5) (2026-05-12)
+
+
+### Bug Fixes
+
+* add npm version, downloads, and license badges to README ([3ec464d](https://github.com/DevonPeroutky/agent-profiler/commit/3ec464d8039a48f8b94fbb23b7ca94f6e5a5297a))
+
 ## [0.2.4](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.3...v0.2.4) (2026-05-12)
 
 
