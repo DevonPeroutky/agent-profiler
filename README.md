@@ -1,4 +1,9 @@
 <h1 align="center">agent-profiler</h1>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@ghostship/agent-profiler"><img src="https://img.shields.io/npm/v/@ghostship/agent-profiler.svg?logo=npm&label=npm&color=cb3837" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@ghostship/agent-profiler"><img src="https://img.shields.io/npm/dm/@ghostship/agent-profiler.svg?color=cb3837" alt="npm downloads" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/@ghostship/agent-profiler.svg?color=blue" alt="license" /></a>
+</p>
 <p align="center"><code>npx @ghostship/agent-profiler</code><br />or <code>npm i -g @ghostship/agent-profiler</code></p>
 <p align="center"><strong>agent-profiler</strong> is a local, open-source trace viewer for agent harness sessions.</p>
 <p align="center"><strong>Support for </strong> Codex, Claude Code and <a href="./docs/adding-agent-harness-adapter.md">an adapter can be added</a> for any harness</p>
