@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.3...v0.2.4) (2026-05-12)
+
+
+### Bug Fixes
+
+* Make nodes draggable in Flow View ([c7805c3](https://github.com/DevonPeroutky/agent-profiler/commit/c7805c39ff5b715899052ee597b55815b7d813f1))
+
 ## [0.2.3](https://github.com/DevonPeroutky/agent-profiler/compare/v0.2.2...v0.2.3) (2026-05-11)
 
 
